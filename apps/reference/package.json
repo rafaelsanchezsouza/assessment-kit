@@ -1,0 +1,24 @@
+{
+  "name": "@gaf/reference-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Clone-and-run demo: demo protocol + human analyzer + no-op fulfillment",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@gaf/types": "workspace:*",
+    "@gaf/core": "workspace:*",
+    "@gaf/capture-web": "workspace:*",
+    "@gaf/forms-web": "workspace:*",
+    "@gaf/analyzer-human": "workspace:*",
+    "@gaf/storage-postgres": "workspace:*",
+    "@gaf/protocol-tools": "workspace:*",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
+  }
+}

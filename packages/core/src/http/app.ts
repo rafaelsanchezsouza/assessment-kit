@@ -1,0 +1,243 @@
+import { randomUUID } from 'node:crypto';
+import type {
+  AnalyzerOutput,
+  Assessment,
+  AssessmentRepository,
+  Evidence,
+  EvidenceRepository,
+  EvidenceRequestRepository,
+  FindingRepository,
+  ProtocolRepository,
+  SubjectRepository,
+} from '@gaf/types';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import { canTransition } from '../stateMachine.ts';
+import { Orchestrator } from '../orchestrator.ts';
+
+/**
+ * The `/reviews` endpoint needs to resolve a pending human-analyzer promise,
+ * but that's HumanAnalyzer-specific behavior, not part of the generic
+ * Analyzer contract in @gaf/types. Declaring the shape here (rather than
+ * importing @gaf/analyzer-human) keeps @gaf/core analyzer-agnostic — the
+ * composition root (apps/reference) passes a concrete instance that
+ * structurally satisfies it.
+ */
+export interface ReviewSubmitter {
+  submitReview(assessmentId: string, output: AnalyzerOutput): boolean;
+}
+
+export interface AppDeps {
+  subjects: SubjectRepository;
+  protocols: ProtocolRepository;
+  assessments: AssessmentRepository;
+  evidence: EvidenceRepository;
+  findings: FindingRepository;
+  evidenceRequests: EvidenceRequestRepository;
+  orchestrator: Orchestrator;
+  reviewSubmitter: ReviewSubmitter;
+}
+
+// Express 4 does not catch rejections from async handlers — without this
+// wrapper a failing repository call becomes an unhandled rejection and kills
+// the whole process on modern Node.
+function wrap(fn: (req: Request, res: Response) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    fn(req, res).catch(next);
+  };
+}
+
+export function createApp(deps: AppDeps): Express {
+  const app = express();
+  app.use(express.json());
+
+  async function getAssessmentOr404(req: Request, res: Response): Promise<Assessment | null> {
+    const assessment = await deps.assessments.get(req.params.id);
+    if (!assessment) {
+      res.status(404).json({ error: `no assessment ${req.params.id}` });
+      return null;
+    }
+    return assessment;
+  }
+
+  app.post('/subjects', wrap(async (req, res) => {
+    const { type, ownerId, attributes } = req.body;
+    if (!type || !ownerId) {
+      res.status(400).json({ error: 'type and ownerId are required' });
+      return;
+    }
+    const subject = { id: randomUUID(), type, ownerId, attributes: attributes ?? {} };
+    await deps.subjects.create(subject);
+    res.status(201).json(subject);
+  }));
+
+  app.get('/subjects/:id', wrap(async (req, res) => {
+    const subject = await deps.subjects.get(req.params.id);
+    if (!subject) {
+      res.status(404).json({ error: `no subject ${req.params.id}` });
+      return;
+    }
+    res.json(subject);
+  }));
+
+  app.get('/subjects/:id/assessments', wrap(async (req, res) => {
+    res.json(await deps.assessments.findBySubject(req.params.id));
+  }));
+
+  app.post('/assessments', wrap(async (req, res) => {
+    const { subjectId, protocolId, protocolVersion, priorAssessmentId } = req.body;
+    if (!subjectId || !protocolId || !protocolVersion) {
+      res.status(400).json({ error: 'subjectId, protocolId and protocolVersion are required' });
+      return;
+    }
+    if (!(await deps.subjects.get(subjectId))) {
+      res.status(404).json({ error: `no subject ${subjectId}` });
+      return;
+    }
+    if (!(await deps.protocols.get(protocolId, protocolVersion))) {
+      res.status(404).json({ error: `no protocol ${protocolId}@${protocolVersion}` });
+      return;
+    }
+    const assessment: Assessment = {
+      id: randomUUID(),
+      subjectId,
+      protocolId,
+      protocolVersion,
+      state: 'draft',
+      refinementRound: 0,
+      priorAssessmentId,
+      progress: {},
+    };
+    await deps.assessments.create(assessment);
+    res.status(201).json(assessment);
+  }));
+
+  app.get('/assessments/:id', wrap(async (req, res) => {
+    const assessment = await getAssessmentOr404(req, res);
+    if (assessment) res.json(assessment);
+  }));
+
+  app.post('/assessments/:id/start', wrap(async (req, res) => {
+    const assessment = await getAssessmentOr404(req, res);
+    if (!assessment) return;
+    if (!canTransition(assessment.state, 'capturing')) {
+      res.status(409).json({ error: `cannot start from state ${assessment.state}` });
+      return;
+    }
+    assessment.state = 'capturing';
+    await deps.assessments.update(assessment);
+    res.json(assessment);
+  }));
+
+  app.patch('/assessments/:id/progress', wrap(async (req, res) => {
+    const assessment = await getAssessmentOr404(req, res);
+    if (!assessment) return;
+
+    const { stepId, status, evidence } = req.body as {
+      stepId: string;
+      status: 'done' | 'skipped';
+      evidence?: Omit<Evidence, 'id' | 'subjectId'>;
+    };
+    if (!stepId || !status) {
+      res.status(400).json({ error: 'stepId and status are required' });
+      return;
+    }
+
+    if (evidence) {
+      const evidenceRow: Evidence = { id: randomUUID(), subjectId: assessment.subjectId, ...evidence };
+      await deps.evidence.create(evidenceRow);
+      await deps.evidence.linkToAssessment({
+        assessmentId: assessment.id,
+        evidenceId: evidenceRow.id,
+        stepId,
+        origin: 'protocol_step',
+      });
+    }
+
+    assessment.progress = { ...assessment.progress, [stepId]: status };
+    await deps.assessments.update(assessment);
+    res.json(assessment);
+  }));
+
+  app.post('/assessments/:id/submit', wrap(async (req, res) => {
+    const assessment = await getAssessmentOr404(req, res);
+    if (!assessment) return;
+
+    const isResubmission = assessment.state === 'awaiting_evidence';
+    if (!canTransition(assessment.state, 'analyzing')) {
+      res.status(409).json({ error: `cannot submit from state ${assessment.state}` });
+      return;
+    }
+
+    const protocol = await deps.protocols.get(assessment.protocolId, assessment.protocolVersion);
+    if (!protocol) {
+      res.status(500).json({ error: `protocol ${assessment.protocolId}@${assessment.protocolVersion} missing` });
+      return;
+    }
+
+    if (isResubmission) assessment.refinementRound += 1;
+    assessment.state = 'analyzing';
+    await deps.assessments.update(assessment);
+
+    const evidenceLinks = await deps.evidence.findByAssessment(assessment.id);
+    const evidence = (
+      await Promise.all(evidenceLinks.map((link) => deps.evidence.get(link.evidenceId)))
+    ).filter((e): e is Evidence => e !== null);
+
+    // Fire-and-forget: human analyzers resolve asynchronously (ADR-005) — the
+    // assessment sits in `review` until then, this request doesn't block on it.
+    deps.orchestrator
+      .runAndPersist(assessment, protocol, evidence, evidenceLinks)
+      .catch((err) => console.error(`orchestrator run failed for ${assessment.id}:`, err));
+
+    res.status(202).json(assessment);
+  }));
+
+  app.post('/reviews/:assessmentId', wrap(async (req, res) => {
+    const assessmentId = req.params.assessmentId;
+    const assessment = await deps.assessments.get(assessmentId);
+    if (!assessment) {
+      res.status(404).json({ error: `no assessment ${assessmentId}` });
+      return;
+    }
+
+    const { findings = [], evidenceRequests = [] } = req.body as {
+      findings?: Array<Omit<AnalyzerOutput['findings'][number], 'id' | 'assessmentId' | 'subjectId'>>;
+      evidenceRequests?: Array<Omit<AnalyzerOutput['evidenceRequests'][number], 'id' | 'assessmentId'>>;
+    };
+
+    const output: AnalyzerOutput = {
+      findings: findings.map((f) => ({
+        id: randomUUID(),
+        assessmentId,
+        subjectId: assessment.subjectId,
+        ...f,
+      })),
+      evidenceRequests: evidenceRequests.map((r) => ({ id: randomUUID(), assessmentId, ...r })),
+    };
+
+    const resolved = deps.reviewSubmitter.submitReview(assessmentId, output);
+    if (!resolved) {
+      res.status(409).json({ error: `no pending review for assessment ${assessmentId}` });
+      return;
+    }
+    res.status(202).json({ accepted: true });
+  }));
+
+  app.get('/assessments/:id/findings', wrap(async (req, res) => {
+    if (!(await getAssessmentOr404(req, res))) return;
+    res.json(await deps.findings.findByAssessment(req.params.id));
+  }));
+
+  app.get('/assessments/:id/evidence-requests', wrap(async (req, res) => {
+    if (!(await getAssessmentOr404(req, res))) return;
+    res.json(await deps.evidenceRequests.findByAssessment(req.params.id));
+  }));
+
+  // Express identifies error middleware by its 4-argument arity.
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('request failed:', err);
+    res.status(500).json({ error: 'internal error' });
+  });
+
+  return app;
+}

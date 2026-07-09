@@ -1,0 +1,12 @@
+{
+  "name": "gaf-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "protocols:validate": "pnpm --filter @gaf/protocol-tools validate ../../protocols ../../catalog"
+  },
+  "devDependencies": { "turbo": "^2.0.0", "typescript": "^5.5.0", "@types/node": "^22.0.0" }
+}

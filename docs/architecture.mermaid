@@ -1,0 +1,54 @@
+flowchart TB
+    subgraph APPS["🏢 VERTICAL APPS (thin, private or public)"]
+        NATIVA["Nativa\nNature-based renovation\nmarketplace"]
+        SKIN["Skincare Advisor\nCosmetics recommendations"]
+        FUTURE["Future verticals\n(pets, real estate, ...)"]
+    end
+
+    subgraph PRIVATE["🔒 KNOWLEDGE LAYER (proprietary — your moat)"]
+        PROTOCOLS["Assessment Protocols\n(storefront-greenwall.yaml,\nfacial-skin.yaml)"]
+        MODELS["Trained models /\nLLM prompts"]
+        MAPPINGS["Findings → Solution\nmappings"]
+        CATALOG["Solution Catalogs\n(products, pros, services)"]
+    end
+
+    subgraph OSS["🔓 OPEN SOURCE — GitHub"]
+        subgraph SDK["📦 Capture SDK (client packages)"]
+            CAPTURE["Guided PhotoCapture\ncomponents + overlays"]
+            QUALITY["Image quality\nvalidation"]
+            FORMS["Questionnaire\nrenderer"]
+        end
+        subgraph ENGINE["⚙️ Framework Core (server)"]
+            INTERP["Protocol Interpreter\n(reads YAML/JSON, drives flow)"]
+            EVIDENCE["Evidence Pipeline\n(storage, metadata, versioning)"]
+            ORCH["Analyzer Orchestrator\n(plugin registry)"]
+            FINDINGS["Findings & Recommendation\nschemas (generic)"]
+        end
+        BOILER["🧪 Reference App\n(example vertical, demo protocol)"]
+    end
+
+    subgraph ANALYZERS["🔌 Analyzer Plugins (interface is OSS, impls vary)"]
+        CV["CV model"]
+        LLMV["LLM vision"]
+        HUMAN["Human expert\n(architect, dermatologist)"]
+    end
+
+    subgraph FULFILL["🛒 Fulfillment (per-vertical, thin)"]
+        QUOTE["Quotes / matching"]
+        SHOP["Purchase links /\ncommerce (Medusa etc.)"]
+    end
+
+    NATIVA --> PROTOCOLS
+    SKIN --> PROTOCOLS
+    APPS --> SDK
+    PROTOCOLS --> INTERP
+    SDK --> INTERP
+    INTERP --> EVIDENCE
+    EVIDENCE --> ORCH
+    ORCH --> CV & LLMV & HUMAN
+    MODELS -.-> CV & LLMV
+    CV & LLMV & HUMAN --> FINDINGS
+    FINDINGS --> MAPPINGS
+    MAPPINGS --> CATALOG
+    CATALOG --> FULFILL
+    BOILER -.demonstrates.-> ENGINE

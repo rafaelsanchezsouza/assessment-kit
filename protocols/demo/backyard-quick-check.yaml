@@ -1,0 +1,32 @@
+# Demo protocol for the reference app. Real protocols are private vertical content.
+id: backyard-quick-check
+version: 0.1.0
+subjectType: backyard
+refinementPolicy:
+  maxRefinementRounds: 1
+steps:
+  - id: wide-shot
+    title: Wide shot
+    guidance: Stand at the entrance and photograph the whole backyard.
+    captureType: image
+    overlayRef: overlays/wide.svg
+    exampleRef: examples/wide.jpg
+    feedsAnalyzers: [general-review]
+    validationRules: { minResolution: [1280, 720], maxBlur: 0.4 }
+  - id: problem-area
+    title: Problem area
+    guidance: Take a close-up of anything that worries you.
+    captureType: image
+    optional: true
+    feedsAnalyzers: [general-review]
+  - id: context
+    title: A few questions
+    guidance: Tell us about the space.
+    captureType: structured_input
+    captureSpec:
+      jsonSchema:
+        type: object
+        properties:
+          sunExposure: { enum: [full-sun, partial, shade] }
+          drainageIssues: { type: boolean }
+    feedsAnalyzers: [general-review]

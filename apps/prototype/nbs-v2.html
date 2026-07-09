@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Avaliação SbN — protótipo v2</title>
+<style>
+  :root{
+    --ink:#18261F; --paper:#FBFBF7; --leaf:#2E7D4F; --leaf-deep:#1E5A38;
+    --amber:#C97F1A; --line:#DCE2DB; --muted:#5C6B60; --card:#FFFFFF; --soft:#F1F7F2;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{
+    font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--paper); color:var(--ink);
+    display:flex; flex-direction:column; max-width:520px; margin:0 auto; min-height:100dvh;
+    padding:env(safe-area-inset-top) 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  header{padding:18px 2px 10px; display:flex; justify-content:space-between; align-items:baseline}
+  header h1{font-size:17px; font-weight:700}
+  .proto-tag{font:600 11px ui-monospace,Menlo,monospace; color:var(--muted)}
+  .chips{display:flex; gap:6px; padding:2px 2px 14px}
+  .chip{flex:1; height:5px; border-radius:3px; background:var(--line)}
+  .chip.done{background:var(--leaf)} .chip.now{background:var(--leaf-deep)}
+  .chip.skipped{background:repeating-linear-gradient(45deg,var(--line),var(--line) 3px,#c9cfc8 3px,#c9cfc8 6px)}
+  main{flex:1; display:flex; flex-direction:column}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:14px}
+  .eyebrow{font:600 11px ui-monospace,Menlo,monospace; color:var(--leaf-deep); text-transform:uppercase; letter-spacing:.08em}
+  .eyebrow .dyn{color:var(--amber)}
+  h2{font-size:23px; font-weight:700; line-height:1.15}
+  .guidance{font-size:15px; line-height:1.5; color:var(--muted)}
+  .frame{position:relative; aspect-ratio:4/3; background:#EEF1EC; border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden}
+  .frame img.shot{width:100%; height:100%; object-fit:cover}
+  .frame .ph{font-size:44px; opacity:.55}
+  .corners::before,.corners::after,.corners i::before,.corners i::after{content:""; position:absolute; width:26px; height:26px; border:3px solid var(--leaf)}
+  .corners::before{top:10px;left:10px;border-right:0;border-bottom:0;border-radius:6px 0 0 0}
+  .corners::after{top:10px;right:10px;border-left:0;border-bottom:0;border-radius:0 6px 0 0}
+  .corners i::before{bottom:10px;left:10px;border-right:0;border-top:0;border-radius:0 0 0 6px}
+  .corners i::after{bottom:10px;right:10px;border-left:0;border-top:0;border-radius:0 0 6px 0}
+  .hint{font-size:12px; color:var(--muted); text-align:center}
+  .feeds{display:flex; flex-wrap:wrap; gap:6px}
+  .feeds b{font-size:11.5px; font-weight:600; background:var(--soft); border:1px solid var(--line); color:var(--leaf-deep); border-radius:20px; padding:4px 10px}
+  .warn{display:none; gap:10px; background:#FBF3E4; border:1px solid #EBD5AC; border-radius:10px; padding:12px; font-size:13.5px; line-height:1.4}
+  .warn.show{display:flex} .warn b{color:var(--amber)}
+  .btn{appearance:none; border:0; border-radius:12px; padding:16px; font:700 16px inherit; cursor:pointer; width:100%}
+  .btn.primary{background:var(--leaf-deep); color:#fff}
+  .btn.primary:disabled{background:var(--line); color:var(--muted)}
+  .btn.ghost{background:transparent; color:var(--leaf-deep); border:1.5px solid var(--leaf)}
+  .btn.quiet{background:transparent; color:var(--muted); padding:10px; font-weight:600; font-size:14px}
+  .btn:focus-visible{outline:3px solid var(--amber); outline-offset:2px}
+  .actions{display:flex; flex-direction:column; gap:8px; padding-top:4px}
+  input[type=file]{display:none}
+  fieldset{border:0; display:flex; flex-direction:column; gap:8px}
+  legend{font-weight:700; font-size:15px; padding-bottom:6px}
+  label.opt{display:flex; gap:10px; align-items:center; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; font-size:15px; cursor:pointer}
+  label.opt:has(input:checked){border-color:var(--leaf-deep); background:var(--soft)}
+  /* solution picker */
+  .cat{font:700 13px inherit; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; padding-top:6px}
+  label.sol{display:flex; gap:12px; border:1.5px solid var(--line); border-radius:12px; padding:13px 14px; cursor:pointer; align-items:flex-start}
+  label.sol:has(input:checked){border-color:var(--leaf-deep); background:var(--soft)}
+  label.sol input{margin-top:3px}
+  .sol .t{font-weight:700; font-size:15px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .sol .prio{font-size:10.5px; font-weight:700; color:#fff; background:var(--leaf); border-radius:20px; padding:2px 8px}
+  .sol .ev{font-size:12.5px; color:var(--muted); line-height:1.45; padding-top:3px}
+  .count{position:sticky; bottom:8px}
+  .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .thumbs figure{position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:1px solid var(--line)}
+  .thumbs img{width:100%; height:100%; object-fit:cover}
+  .thumbs figcaption{position:absolute; inset:auto 0 0 0; font-size:10px; padding:3px 5px; background:rgba(24,38,31,.75); color:#fff}
+  dl{display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:14px}
+  dt{color:var(--muted)} dd{font-weight:600}
+  .done-icon{width:64px;height:64px;margin:6px auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Avaliação SbN</h1>
+  <span class="proto-tag">nbs-paraiba@0.1.0</span>
+</header>
+<div class="chips" id="chips" aria-hidden="true"></div>
+<main id="app" aria-live="polite"></main>
+
+<script>
+/* ══════════ CATÁLOGO (camada de conhecimento — catalog/nbs-paraiba.yaml) ══════════ */
+const REGION_PRIORITIES = {
+  sertao:  ["cisterna","reuso-aguas-cinzas","quebra-vento","nativas-caatinga","bet"],
+  agreste: ["cisterna","saf-quintal","jardim-de-chuva","compostagem","polinizadores"],
+  litoral: ["telhado-verde","fachada-verde","jardim-de-chuva","pavimento-permeavel","arborizacao"]
+};
+const CATS = { agua:"💧 Água e saneamento", conforto:"🌡️ Conforto térmico", biodiversidade:"🌱 Biodiversidade e produção" };
+const SOLUTIONS = [
+ {id:"cisterna",title:"Cisterna / captação de chuva",cat:"agua",req:["telhado"],
+  ev:"Âncora do semiárido (P1MC): chuvas concentradas em 3–4 meses tornam armazenar essencial."},
+ {id:"reuso-aguas-cinzas",title:"Reúso de águas cinzas",cat:"agua",req:["lavanderia"],
+  ev:"70–75% do efluente doméstico é água cinza; economia de potável de até ~22% em estudos."},
+ {id:"jardim-de-chuva",title:"Jardim de chuva",cat:"agua",req:["telhado","piso-externo","ponto-agua"],
+  ev:"Infiltração de 312 mm/h medida em Recife; reduz alagamento e melhora o microclima."},
+ {id:"pavimento-permeavel",title:"Pavimento permeável",cat:"agua",req:["piso-externo","ponto-agua"],
+  ev:"Em 24 chuvas monitoradas, só uma gerou escoamento (coef. 0,16%)."},
+ {id:"wetland",title:"Wetland / zona de raízes",cat:"agua",req:["area-fossa"],
+  ev:"Remoção de DQO/DBO chegando a ~98%; ideal onde não há rede de esgoto."},
+ {id:"bet",title:"Bacia de evapotranspiração (BET)",cat:"agua",req:["area-fossa"],
+  ev:"Trata água negra em circuito fechado (>90% DQO/DBO); baixo custo, saída só por evaporação."},
+ {id:"telhado-verde",title:"Telhado verde",cat:"conforto",req:["telhado"],
+  ev:"Reduz extremos térmicos na laje e o uso de ar-condicionado; impermeabilização é o ponto crítico."},
+ {id:"fachada-verde",title:"Fachada / parede verde",cat:"conforto",req:["parede-oeste"],
+  ev:"Até 4,4 °C a menos no ar interno e 8,4 °C na superfície; prioriza a face oeste."},
+ {id:"arborizacao",title:"Arborização e sombreamento",cat:"conforto",req:["parede-oeste"],
+  ev:"Sombra reduz a temperatura do ar; áreas sem vegetação concentram ilha de calor."},
+ {id:"quebra-vento",title:"Quebra-vento vegetado",cat:"conforto",req:["entorno-vento"],
+  ev:"Reduz evaporação do solo e erosão; ameniza a amplitude térmica no sertão ventoso."},
+ {id:"nativas-caatinga",title:"Paisagismo com nativas da Caatinga",cat:"biodiversidade",req:["solo-quintal"],
+  ev:"932 espécies adaptadas à aridez — jardim que quase dispensa irrigação (Burle Marx, 1935)."},
+ {id:"saf-quintal",title:"Quintal produtivo / agrofloresta",cat:"biodiversidade",req:["solo-quintal"],
+  ev:"SAF reduz temperatura e eleva umidade (Embrapa); melhora solo e retenção de carbono."},
+ {id:"polinizadores",title:"Jardim de polinizadores",cat:"biodiversidade",req:["solo-quintal"],
+  ev:"~60% das culturas do Brasil dependem de polinização; jandaíra é segura e urbana."},
+ {id:"compostagem",title:"Compostagem doméstica",cat:"biodiversidade",req:["solo-quintal"],
+  ev:"~50% do lixo urbano é orgânico; compostar corta metano e gera adubo para o quintal."}
+];
+/* Biblioteca de passos compartilhados (composição = base + união dos req, sem duplicar) */
+const STEP_LIB = {
+ "telhado":{title:"Telhado e calhas",ph:"🏠",guidance:"Afaste-se e fotografe o telhado inteiro, mostrando calhas e a área de captação."},
+ "parede-oeste":{title:"Parede oeste (sol da tarde)",ph:"🌇",guidance:"Fotografe a parede que recebe o sol da tarde, de frente, mostrando toda a superfície."},
+ "piso-externo":{title:"Pisos e áreas pavimentadas",ph:"🧱",guidance:"Mostre calçadas, garagem ou pátio — as áreas onde a água não infiltra hoje."},
+ "ponto-agua":{title:"Onde a água empoça",ph:"💦",guidance:"Fotografe o ponto onde a água acumula ou a parede fica úmida após a chuva, a 1–2 m."},
+ "area-fossa":{title:"Área da fossa / esgoto",ph:"🕳️",guidance:"Mostre onde fica a fossa ou a saída de esgoto, com o entorno visível."},
+ "lavanderia":{title:"Área de serviço",ph:"🧺",guidance:"Fotografe a lavanderia ou a saída de água do chuveiro/máquina — a origem das águas cinzas."},
+ "solo-quintal":{title:"Solo e canteiros (close)",ph:"🌿",guidance:"Um close do solo ou canteiro: queremos ver cobertura, umidade e o que já cresce aí."},
+ "entorno-vento":{title:"Lado do vento dominante",ph:"🌬️",guidance:"Vire-se para o lado de onde o vento costuma vir e fotografe o terreno até o horizonte."}
+};
+const BASE_IMG = [
+ {id:"fachada",title:"Fachada do imóvel",ph:"🏪",guidance:"Atravesse a rua se possível. Enquadre a fachada inteira, incluindo o telhado.",base:true},
+ {id:"quintal-wide",title:"Área externa, plano aberto",ph:"🌳",guidance:"Da entrada do quintal, uma foto aberta mostrando chão, muros e vegetação.",base:true}
+];
+
+/* ══════════ Estado da avaliação ══════════ */
+const assessment = {
+  id:"as_"+Math.random().toString(36).slice(2,8),
+  catalogId:"nbs-paraiba", catalogVersion:"0.1.0",
+  state:"draft", refinementRound:0,
+  region:null, answers:{}, selectedSolutions:[], evidence:[], progress:{}
+};
+let steps=[], idx=-1;
+const $=s=>document.querySelector(s), app=$("#app");
+
+function renderChips(){
+  if(!steps.length){$("#chips").innerHTML="";return}
+  $("#chips").innerHTML=steps.map((s,i)=>{
+    const st=assessment.progress[s.id];
+    return `<div class="chip ${i===idx?'now':''} ${st==='done'?'done':''} ${st==='skipped'?'skipped':''}"></div>`;
+  }).join("");
+}
+
+/* ── Tela 1: contexto (região dirige a priorização do catálogo) ── */
+function renderContext(){
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">contexto</span>
+    <h2>Sobre o seu imóvel</h2>
+    <p class="guidance">Três respostas rápidas — elas direcionam quais soluções fazem mais sentido para a sua região.</p>
+    <fieldset><legend>Onde fica o imóvel?</legend>
+      <label class="opt"><input type="radio" name="region" value="litoral"/> Litoral (João Pessoa e região)</label>
+      <label class="opt"><input type="radio" name="region" value="agreste"/> Agreste (Campina Grande e região)</label>
+      <label class="opt"><input type="radio" name="region" value="sertao"/> Sertão</label>
+    </fieldset>
+    <fieldset><legend>Tem rede de esgoto?</legend>
+      <label class="opt"><input type="radio" name="esgoto" value="sim"/> Sim</label>
+      <label class="opt"><input type="radio" name="esgoto" value="nao"/> Não (fossa)</label>
+    </fieldset>
+    <fieldset><legend>Água empoça ou parede fica úmida após chuva?</legend>
+      <label class="opt"><input type="radio" name="alagamento" value="sim"/> Sim</label>
+      <label class="opt"><input type="radio" name="alagamento" value="nao"/> Não</label>
+    </fieldset>
+    <div class="actions"><button class="btn primary" id="go" disabled>Ver soluções para minha região</button></div>
+  </div>`;
+  app.onchange=()=>{ $("#go").disabled=!["region","esgoto","alagamento"].every(n=>app.querySelector(`[name=${n}]:checked`)); };
+  $("#go").onclick=()=>{
+    ["region","esgoto","alagamento"].forEach(n=>assessment.answers[n]=app.querySelector(`[name=${n}]:checked`).value);
+    assessment.region=assessment.answers.region;
+    renderPicker();
+  };
+}
+
+/* ── Tela 2: catálogo com prioridades regionais ── */
+function renderPicker(){
+  const prio=REGION_PRIORITIES[assessment.region]||[];
+  const order=s=>prio.includes(s.id)?prio.indexOf(s.id):99;
+  const groups=Object.keys(CATS).map(cat=>{
+    const sols=SOLUTIONS.filter(s=>s.cat===cat).sort((a,b)=>order(a)-order(b));
+    return `<div class="cat">${CATS[cat]}</div>`+sols.map(s=>`
+      <label class="sol"><input type="checkbox" value="${s.id}"/>
+        <span><span class="t">${s.title}${prio.includes(s.id)?'<span class="prio">prioritária na sua região</span>':''}</span>
+        <span class="ev">${s.ev}</span></span>
+      </label>`).join("");
+  }).join("");
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">catálogo · ${assessment.region}</span>
+    <h2>O que te interessa?</h2>
+    <p class="guidance">Escolha uma ou mais soluções. O roteiro de fotos é montado sob medida — cada foto serve a todas as soluções que precisam dela.</p>
+    ${groups}
+    <div class="actions count"><button class="btn primary" id="build" disabled>Montar roteiro de fotos</button></div>
+  </div>`;
+  app.onchange=()=>{
+    const n=app.querySelectorAll("input:checked").length;
+    $("#build").disabled=!n;
+    $("#build").textContent=n?`Montar roteiro de fotos (${n} solução${n>1?"ões":""})`:"Montar roteiro de fotos";
+  };
+  $("#build").onclick=()=>{
+    assessment.selectedSolutions=[...app.querySelectorAll("input:checked")].map(i=>i.value);
+    composeProtocol(); idx=-1; assessment.state="capturing"; next();
+  };
+}
+
+/* ── Composição do protocolo: base + união dos requisitos (deduplicado) ── */
+function composeProtocol(){
+  const chosen=SOLUTIONS.filter(s=>assessment.selectedSolutions.includes(s.id));
+  const feeds={}; // stepId -> [solution titles]
+  chosen.forEach(s=>s.req.forEach(r=>{(feeds[r]??=[]).push(s.title)}));
+  const shared=Object.keys(feeds)
+    .filter(id=>id!=="ponto-agua" || assessment.answers.alagamento==="sim") // condicional
+    .map(id=>({id,...STEP_LIB[id],feeds:feeds[id],dynamic:id==="ponto-agua"}));
+  if(feeds["ponto-agua"]&&assessment.answers.alagamento==="sim") assessment.refinementRound=1;
+  steps=[...BASE_IMG.map(b=>({...b,feeds:["Avaliação base"]})),...shared];
+}
+
+/* ── Verificação de nitidez no aparelho (Laplaciano) ── */
+function blurScore(img){
+  const w=160,h=120,c=document.createElement("canvas");c.width=w;c.height=h;
+  const g=c.getContext("2d");g.drawImage(img,0,0,w,h);
+  const d=g.getImageData(0,0,w,h).data,gray=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++){const j=i*4;gray[i]=.299*d[j]+.587*d[j+1]+.114*d[j+2];}
+  let sum=0,sq=0,n=0;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const i=y*w+x,v=-4*gray[i]+gray[i-1]+gray[i+1]+gray[i-w]+gray[i+w];
+    sum+=v;sq+=v*v;n++;
+  }
+  const m=sum/n;return Math.sqrt(sq/n-m*m);
+}
+
+/* ── Passos de foto ── */
+function renderImageStep(step){
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">${step.dynamic?'<span class="dyn">solicitada pelo analisador</span>':`foto ${idx+1} de ${steps.length}`}</span>
+    <h2>${step.title}</h2>
+    ${step.dynamic?`<p class="guidance"><b>Você relatou água empoçando — precisamos ver o ponto exato.</b></p>`:""}
+    <p class="guidance">${step.guidance}</p>
+    <div class="feeds">${step.feeds.map(f=>`<b>${f}</b>`).join("")}</div>
+    <div class="frame corners"><i></i><span class="ph">${step.ph}</span><img class="shot" hidden alt="sua foto"/></div>
+    <p class="hint" id="hint">Esta foto alimenta ${step.feeds.length>1?"as soluções acima":"a solução acima"}</p>
+    <div class="warn" id="warn">⚠️ <span><b>Parece tremida.</b> Segure firme e tente de novo — fotos nítidas geram recomendações melhores.</span></div>
+    <div class="actions">
+      <input type="file" id="cam" accept="image/*" capture="environment"/>
+      <button class="btn primary" id="shoot">Abrir câmera</button>
+      <button class="btn primary" id="accept" hidden>Usar esta foto</button>
+      <button class="btn ghost" id="retake" hidden>Refazer</button>
+      <button class="btn quiet" id="skip">Pular esta foto</button>
+    </div>
+  </div>`;
+  const cam=$("#cam"),shot=$(".shot");let current=null;
+  $("#shoot").onclick=()=>cam.click(); $("#retake").onclick=()=>cam.click();
+  cam.onchange=()=>{
+    const f=cam.files[0];if(!f)return;
+    const url=URL.createObjectURL(f),img=new Image();
+    img.onload=()=>{
+      const score=blurScore(img);
+      shot.src=url;shot.hidden=false;$(".ph")?.remove();
+      $("#hint").textContent=`Nitidez: ${score.toFixed(1)}`;
+      $("#warn").classList.toggle("show",score<12);
+      $("#shoot").hidden=true;$("#accept").hidden=false;$("#retake").hidden=false;
+      current={file:f,url,score};
+    };
+    img.src=url;
+  };
+  $("#accept").onclick=()=>{
+    assessment.evidence.push({
+      stepId:step.id,type:"image",name:current.file.name||step.id+".jpg",
+      capturedAt:new Date().toISOString(),sharpness:+current.score.toFixed(1),
+      feedsSolutions:step.feeds,origin:step.dynamic?"evidence_request":"protocol_step",url:current.url
+    });
+    assessment.progress[step.id]="done";next();
+  };
+  $("#skip").onclick=()=>{assessment.progress[step.id]="skipped";next();};
+}
+
+/* ── Revisão e envio ── */
+function renderReview(){
+  assessment.state="review";renderChips();
+  const titles=SOLUTIONS.filter(s=>assessment.selectedSolutions.includes(s.id)).map(s=>s.title);
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">revisão</span>
+    <h2>Tudo que o especialista vai receber</h2>
+    <div class="feeds">${titles.map(t=>`<b>${t}</b>`).join("")}</div>
+    <div class="thumbs">${assessment.evidence.map(e=>`<figure><img src="${e.url}" alt="${e.stepId}"/><figcaption>${e.stepId}</figcaption></figure>`).join("")}</div>
+    <dl>
+      <dt>Região</dt><dd>${assessment.region}</dd>
+      <dt>Rede de esgoto</dt><dd>${assessment.answers.esgoto}</dd>
+      <dt>Água empoça</dt><dd>${assessment.answers.alagamento}</dd>
+    </dl>
+    <div class="actions">
+      <button class="btn primary" id="send">Enviar para o especialista</button>
+      <button class="btn ghost" id="dl">Baixar manifesto (JSON)</button>
+    </div>
+  </div>`;
+  $("#dl").onclick=()=>{
+    const manifest={...assessment,evidence:assessment.evidence.map(({url,...e})=>e)};
+    const b=new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=assessment.id+".json";a.click();
+  };
+  $("#send").onclick=()=>{
+    assessment.state="completed";
+    app.innerHTML=`
+    <div class="card" style="text-align:center">
+      <svg class="done-icon" viewBox="0 0 64 64" fill="none" stroke="#2E7D4F" stroke-width="4" stroke-linecap="round"><circle cx="32" cy="32" r="27"/><path d="M20 33l8 8 16-18"/></svg>
+      <h2>Avaliação enviada</h2>
+      <p class="guidance">Um especialista em soluções baseadas na natureza vai analisar suas
+      ${assessment.evidence.length} fotos e responder com a viabilidade de cada solução escolhida —
+      e um orçamento, se você quiser seguir em frente.</p>
+      <p class="hint">${assessment.id} · catálogo nbs-paraiba@0.1.0 · ${assessment.selectedSolutions.length} soluções · rodadas de refinamento: ${assessment.refinementRound}</p>
+    </div>`;
+  };
+}
+
+function next(){
+  idx++;renderChips();
+  if(idx<steps.length) renderImageStep(steps[idx]);
+  else renderReview();
+}
+
+renderContext();
+</script>
+</body>
+</html>

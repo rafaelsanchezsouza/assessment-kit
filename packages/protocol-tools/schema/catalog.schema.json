@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gaf.dev/schemas/catalog.schema.json",
+  "title": "Solution Catalog",
+  "type": "object",
+  "required": ["catalog", "stepLibrary", "solutions"],
+  "properties": {
+    "catalog": {
+      "type": "object",
+      "required": ["id", "version", "subjectType"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "subjectType": { "type": "string" },
+        "regions": { "type": "array", "items": { "type": "string" } },
+        "regionPriorities": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "stepLibrary": {
+      "type": "object",
+      "required": ["base"],
+      "properties": {
+        "base": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/libraryStep" } },
+        "shared": { "type": "array", "items": { "$ref": "#/$defs/libraryStep" } }
+      }
+    },
+    "solutions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/solution" }
+    }
+  },
+  "$defs": {
+    "libraryStep": {
+      "type": "object",
+      "required": ["id", "captureType", "title"],
+      "properties": {
+        "id": { "type": "string" },
+        "captureType": { "enum": ["image", "structured_input", "document"] },
+        "title": { "type": "string" },
+        "conditional": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "solution": {
+      "type": "object",
+      "required": ["id", "title", "category", "fulfillmentType", "conditionsAddressed", "requires"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "fulfillmentType": { "enum": ["product", "service", "self_action", "plan"] },
+        "conditionsAddressed": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "requires": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "evidence": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

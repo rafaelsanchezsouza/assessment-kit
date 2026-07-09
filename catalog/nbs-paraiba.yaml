@@ -1,0 +1,169 @@
+# Catálogo de Soluções Baseadas na Natureza — Paraíba (demo)
+# Structure mirrors Solution in @gaf/types + evidenceRequirements (solution-first assessment).
+# In production this file lives in the PRIVATE vertical repo; it ships here as demo content.
+# Evidence one-liners paraphrase Brazilian technical literature. This catalog is DEMO
+# content; the production catalog and its full sourced evidence base live in the PRIVATE
+# Nativa repo (knowledge layer), not in this open-source framework repo.
+
+catalog:
+  id: nbs-paraiba
+  version: 0.1.0
+  subjectType: building
+  regions: [litoral, agreste, sertao]
+  regionPriorities:
+    sertao:  [cisterna, reuso-aguas-cinzas, quebra-vento, nativas-caatinga, bet]
+    agreste: [cisterna, saf-quintal, jardim-de-chuva, compostagem, polinizadores]
+    litoral: [telhado-verde, fachada-verde, jardim-de-chuva, pavimento-permeavel, arborizacao]
+
+# Steps shared across solutions — composition = base + union of requires (deduplicated)
+stepLibrary:
+  base:
+    - id: contexto
+      captureType: structured_input
+      title: Contexto do imóvel
+    - id: fachada
+      captureType: image
+      title: Fachada / frente do imóvel
+    - id: quintal-wide
+      captureType: image
+      title: Quintal ou área externa, plano aberto
+  shared:
+    - { id: telhado,        captureType: image, title: Telhado e calhas }
+    - { id: parede-oeste,   captureType: image, title: Parede oeste (sol da tarde) }
+    - { id: piso-externo,   captureType: image, title: Pisos e áreas pavimentadas }
+    - { id: ponto-agua,     captureType: image, title: Ponto onde a água empoça, conditional: alagamento }
+    - { id: area-fossa,     captureType: image, title: Área da fossa / saída de esgoto }
+    - { id: lavanderia,     captureType: image, title: Área de serviço / saída de águas cinzas }
+    - { id: solo-quintal,   captureType: image, title: "Solo e canteiros, close-up" }
+    - { id: entorno-vento,  captureType: image, title: Lado do vento dominante }
+
+solutions:
+  # ── Água e saneamento ──────────────────────────────────────────
+  - id: cisterna
+    title: Cisterna / captação de água de chuva
+    category: agua
+    fulfillmentType: service
+    conditionsAddressed: [escassez-hidrica, custo-agua]
+    requires: [telhado]
+    evidence: >-
+      Tecnologia âncora do semiárido (P1MC, 16 mil L); chuvas concentradas em
+      3–4 meses tornam o armazenamento essencial; exige first-flush e manutenção.
+  - id: reuso-aguas-cinzas
+    title: Reúso de águas cinzas
+    category: agua
+    fulfillmentType: service
+    conditionsAddressed: [escassez-hidrica, custo-agua]
+    requires: [lavanderia]
+    evidence: >-
+      Águas cinzas são ~70–75% do efluente doméstico; estudos no semiárido
+      mostram economia de água potável (até ~22%) e redução de fertilizantes.
+  - id: jardim-de-chuva
+    title: Jardim de chuva / biorretenção
+    category: agua
+    fulfillmentType: service
+    conditionsAddressed: [alagamento, drenagem, conforto-termico]
+    requires: [telhado, piso-externo, ponto-agua]
+    evidence: >-
+      Em Recife, infiltração superficial de 312 mm/h; retém e infiltra a chuva
+      no lote, reduz alagamentos e melhora o microclima.
+  - id: pavimento-permeavel
+    title: Pavimento permeável
+    category: agua
+    fulfillmentType: service
+    conditionsAddressed: [alagamento, drenagem]
+    requires: [piso-externo, ponto-agua]
+    evidence: >-
+      Em 24 eventos de chuva monitorados, apenas um gerou escoamento
+      (coeficiente 0,16%); blocos vazados praticamente eliminam o escoamento.
+  - id: wetland
+    title: Wetland construído / zona de raízes
+    category: agua
+    fulfillmentType: service
+    conditionsAddressed: [sem-rede-esgoto, saneamento]
+    requires: [area-fossa]
+    evidence: >-
+      Remoção de DQO/DBO chegando a ~98% em sistema de 10 anos; clima quente
+      brasileiro favorece; espécies típicas: taboa, junco, caniço.
+  - id: bet
+    title: Bacia de evapotranspiração (BET)
+    category: agua
+    fulfillmentType: service
+    conditionsAddressed: [sem-rede-esgoto, saneamento]
+    requires: [area-fossa]
+    evidence: >-
+      Trata água negra em circuito fechado (saída só por evaporação); remoção
+      >90% DQO/DBO; baixo custo, pode reaproveitar entulho e pneus.
+  # ── Conforto térmico e microclima ──────────────────────────────
+  - id: telhado-verde
+    title: Telhado verde
+    category: conforto
+    fulfillmentType: service
+    conditionsAddressed: [calor, conforto-termico, custo-energia]
+    requires: [telhado]
+    evidence: >-
+      Protege a laje de extremos térmicos; em semiárido reduziu temperatura e
+      uso de ar-condicionado; impermeabilização é o ponto crítico no trópico.
+  - id: fachada-verde
+    title: Fachada / parede verde
+    category: conforto
+    fulfillmentType: service
+    conditionsAddressed: [calor, conforto-termico, custo-energia]
+    requires: [parede-oeste]
+    evidence: >-
+      Reduções medidas: até 4,4 °C no ar interno e 8,4 °C na superfície da
+      parede; prioriza a face oeste com espécies rústicas.
+  - id: arborizacao
+    title: Arborização e sombreamento
+    category: conforto
+    fulfillmentType: service
+    conditionsAddressed: [calor, conforto-termico, ilha-de-calor]
+    requires: [parede-oeste]
+    evidence: >-
+      Sombra reduz a temperatura do ar (área arborizada com PET 20,8 °C em
+      Campinas); áreas sem vegetação concentram ilha de calor.
+  - id: quebra-vento
+    title: Quebra-vento vegetado
+    category: conforto
+    fulfillmentType: service
+    conditionsAddressed: [evaporacao, erosao, vento]
+    requires: [entorno-vento]
+    evidence: >-
+      Reduz evaporação do solo e erosão eólica, ameniza amplitude térmica;
+      eficiência depende de permeabilidade, altura e orientação ao vento.
+  # ── Biodiversidade, solo e produção ────────────────────────────
+  - id: nativas-caatinga
+    title: Paisagismo com nativas da Caatinga
+    category: biodiversidade
+    fulfillmentType: service
+    conditionsAddressed: [escassez-hidrica, custo-irrigacao, estetica]
+    requires: [solo-quintal]
+    evidence: >-
+      932 espécies (318 endêmicas) adaptadas à aridez; dispensa quase toda a
+      irrigação; tradição desde Burle Marx (1935) com juazeiro, mandacaru etc.
+  - id: saf-quintal
+    title: Sistema agroflorestal / quintal produtivo
+    category: biodiversidade
+    fulfillmentType: service
+    conditionsAddressed: [producao-alimento, calor, solo-degradado]
+    requires: [solo-quintal]
+    evidence: >-
+      Embrapa mediu menor temperatura e maior umidade dentro do SAF; no
+      Nordeste melhora solo, matéria orgânica e retenção de carbono.
+  - id: polinizadores
+    title: Jardim de polinizadores / meliponicultura
+    category: biodiversidade
+    fulfillmentType: service
+    conditionsAddressed: [biodiversidade, producao-alimento]
+    requires: [solo-quintal]
+    evidence: >-
+      ~60% das espécies cultivadas no Brasil dependem de polinização; abelhas
+      sem ferrão (ex.: jandaíra) são seguras e urbanas.
+  - id: compostagem
+    title: Compostagem doméstica
+    category: biodiversidade
+    fulfillmentType: self_action
+    conditionsAddressed: [residuos, solo-degradado]
+    requires: [solo-quintal]
+    evidence: >-
+      ~50% do resíduo urbano brasileiro é orgânico; compostar reduz metano
+      (resíduos = 16% das emissões nacionais) e gera adubo para o quintal.

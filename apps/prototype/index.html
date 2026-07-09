@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>House Assessment — GAF prototype</title>
+<style>
+  :root{
+    --ink:#18261F; --paper:#FBFBF7; --leaf:#2E7D4F; --leaf-deep:#1E5A38;
+    --amber:#C97F1A; --line:#DCE2DB; --muted:#5C6B60; --card:#FFFFFF;
+  }
+  *{box-sizing:border-box; margin:0}
+  html,body{height:100%}
+  body{
+    font-family:"Archivo",-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--paper); color:var(--ink);
+    display:flex; flex-direction:column; max-width:520px; margin:0 auto;
+    padding:env(safe-area-inset-top) 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  header{padding:18px 2px 10px; display:flex; justify-content:space-between; align-items:baseline}
+  header h1{font-size:17px; font-weight:700; letter-spacing:.01em}
+  .proto-tag{font:600 11px ui-monospace,Menlo,monospace; color:var(--muted)}
+  /* step chips — filled leaf when done */
+  .chips{display:flex; gap:6px; padding:2px 2px 14px}
+  .chip{flex:1; height:5px; border-radius:3px; background:var(--line); transition:background .3s}
+  .chip.done{background:var(--leaf)} .chip.now{background:var(--leaf-deep)}
+  .chip.skipped{background:repeating-linear-gradient(45deg,var(--line),var(--line) 3px,#c9cfc8 3px,#c9cfc8 6px)}
+  main{flex:1; display:flex; flex-direction:column}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:14px}
+  .eyebrow{font:600 11px ui-monospace,Menlo,monospace; color:var(--leaf-deep); text-transform:uppercase; letter-spacing:.08em}
+  .eyebrow .dyn{color:var(--amber)}
+  h2{font-size:24px; font-weight:700; line-height:1.15}
+  .guidance{font-size:15px; line-height:1.5; color:var(--muted)}
+  /* viewfinder frame — the signature element */
+  .frame{position:relative; aspect-ratio:4/3; background:#EEF1EC; border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden}
+  .frame img.shot{width:100%; height:100%; object-fit:cover}
+  .frame svg.example{width:62%; opacity:.9}
+  .corners::before,.corners::after,.corners span::before,.corners span::after{
+    content:""; position:absolute; width:26px; height:26px; border:3px solid var(--leaf);
+  }
+  .corners::before{top:10px;left:10px;border-right:0;border-bottom:0;border-radius:6px 0 0 0}
+  .corners::after{top:10px;right:10px;border-left:0;border-bottom:0;border-radius:0 6px 0 0}
+  .corners span::before{bottom:10px;left:10px;border-right:0;border-top:0;border-radius:0 0 0 6px}
+  .corners span::after{bottom:10px;right:10px;border-left:0;border-top:0;border-radius:0 0 6px 0}
+  .hint{font-size:12px; color:var(--muted); text-align:center}
+  .warn{display:none; gap:10px; align-items:flex-start; background:#FBF3E4; border:1px solid #EBD5AC; border-radius:10px; padding:12px; font-size:13.5px; line-height:1.4}
+  .warn.show{display:flex}
+  .warn b{color:var(--amber)}
+  .btn{appearance:none; border:0; border-radius:12px; padding:16px; font:700 16px inherit; cursor:pointer; width:100%}
+  .btn.primary{background:var(--leaf-deep); color:#fff}
+  .btn.primary:disabled{background:var(--line); color:var(--muted)}
+  .btn.ghost{background:transparent; color:var(--leaf-deep); border:1.5px solid var(--leaf); }
+  .btn.quiet{background:transparent; color:var(--muted); padding:10px; font-weight:600; font-size:14px}
+  .btn:focus-visible{outline:3px solid var(--amber); outline-offset:2px}
+  .actions{display:flex; flex-direction:column; gap:8px; padding-top:4px}
+  input[type=file]{display:none}
+  /* questionnaire */
+  fieldset{border:0; display:flex; flex-direction:column; gap:8px}
+  legend{font-weight:700; font-size:15px; padding-bottom:6px}
+  label.opt{display:flex; gap:10px; align-items:center; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; font-size:15px; cursor:pointer}
+  label.opt:has(input:checked){border-color:var(--leaf-deep); background:#F1F7F2}
+  /* review */
+  .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+  .thumbs figure{position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:1px solid var(--line)}
+  .thumbs img{width:100%; height:100%; object-fit:cover}
+  .thumbs figcaption{position:absolute; inset:auto 0 0 0; font-size:10px; padding:3px 5px; background:rgba(24,38,31,.75); color:#fff}
+  dl{display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:14px}
+  dt{color:var(--muted)} dd{font-weight:600}
+  .done-icon{width:64px;height:64px;margin:6px auto}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<header>
+  <h1>House assessment</h1>
+  <span class="proto-tag" id="protoTag"></span>
+</header>
+<div class="chips" id="chips" aria-hidden="true"></div>
+<main id="app" aria-live="polite"></main>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   PROTOCOL — same shape as ProtocolStep in @gaf/types.
+   In the real framework this arrives compiled from YAML.
+──────────────────────────────────────────────────────────────*/
+const PROTOCOL = {
+  id: "house-exterior-quick", version: "0.1.0", subjectType: "house",
+  refinementPolicy: { maxRefinementRounds: 1 },
+  steps: [
+    { id:"facade", title:"Front of the house", captureType:"image", feedsAnalyzers:["general-review"],
+      guidance:"Cross the street if you can. Fit the whole facade in the frame, roofline included.",
+      example:"facade" },
+    { id:"backyard", title:"Backyard, wide", captureType:"image", feedsAnalyzers:["general-review"],
+      guidance:"Stand at the backyard entrance. One wide shot showing ground, walls and any vegetation.",
+      example:"yard" },
+    { id:"roofline", title:"Roof and gutters", captureType:"image", feedsAnalyzers:["general-review"],
+      guidance:"Step back and angle up. We want the roof edge and gutters in view.",
+      example:"roof" },
+    { id:"problem", title:"Anything that worries you", captureType:"image", optional:true, feedsAnalyzers:["general-review"],
+      guidance:"A close-up of a crack, stain, leak — anything you'd point at if the architect were here.",
+      example:"closeup" },
+    { id:"context", title:"A few questions", captureType:"structured_input", feedsAnalyzers:["general-review"],
+      guidance:"Thirty seconds. This routes your photos to the right specialist.",
+      questions:[
+        { id:"sunExposure", label:"How much sun does the backyard get?", options:["Full sun","Partial","Mostly shade"] },
+        { id:"drainageIssues", label:"Water pooling or damp walls after rain?", options:["Yes","No"] },
+        { id:"goal", label:"Main goal for the renovation?", options:["Green area / garden","Fix a problem","Customer-facing improvement"] }
+      ]}
+  ]
+};
+
+/* Dynamic step template — an EvidenceRequest (kind: "additional"), the refinement loop */
+const DRAINAGE_REQUEST = {
+  id:"drainage-closeup", title:"Drainage close-up", captureType:"image", dynamic:true,
+  feedsAnalyzers:["general-review"],
+  reason:"You reported water pooling — a rule analyzer requested one more photo.",
+  guidance:"Photograph the spot where water pools or the wall stays damp, about 1–2 m away.",
+  example:"closeup"
+};
+
+/* Simple line-art examples (inline SVG) */
+const ART = {
+  facade:'<svg class="example" viewBox="0 0 120 84" fill="none" stroke="#2E7D4F" stroke-width="2.4" stroke-linecap="round"><path d="M14 40 60 14l46 26"/><path d="M22 40v32h76V40"/><rect x="52" y="48" width="16" height="24"/><rect x="30" y="48" width="12" height="12"/><rect x="78" y="48" width="12" height="12"/></svg>',
+  yard:'<svg class="example" viewBox="0 0 120 84" fill="none" stroke="#2E7D4F" stroke-width="2.4" stroke-linecap="round"><path d="M8 66h104"/><path d="M20 66V38m0 0c-8 0-10-12 0-12s8 12 0 12" /><path d="M96 66V30m0 0c-10 0-12-14 0-14s10 14 0 14"/><path d="M46 66c2-10 8-14 14-14s12 4 14 14"/></svg>',
+  roof:'<svg class="example" viewBox="0 0 120 84" fill="none" stroke="#2E7D4F" stroke-width="2.4" stroke-linecap="round"><path d="M10 46 60 16l50 30"/><path d="M18 46h84"/><path d="M18 46v8h84v-8"/><path d="M30 54v16m60-16v16"/></svg>',
+  closeup:'<svg class="example" viewBox="0 0 120 84" fill="none" stroke="#2E7D4F" stroke-width="2.4" stroke-linecap="round"><circle cx="52" cy="38" r="22"/><path d="M68 54l24 22"/><path d="M44 34c4 6 10 8 16 6"/></svg>'
+};
+
+/* ─────────────────────────────────────────────────────────────
+   Assessment state (in-memory). The real SDK persists locally
+   and syncs drafts to the server (server = source of truth).
+──────────────────────────────────────────────────────────────*/
+const assessment = {
+  id:"as_"+Math.random().toString(36).slice(2,8),
+  protocolId:PROTOCOL.id, protocolVersion:PROTOCOL.version,
+  state:"capturing", refinementRound:0,
+  evidence:[], answers:{}, progress:{}
+};
+let steps=[...PROTOCOL.steps], idx=0;
+
+const $=s=>document.querySelector(s);
+const app=$("#app");
+$("#protoTag").textContent=`${PROTOCOL.id}@${PROTOCOL.version}`;
+
+function renderChips(){
+  $("#chips").innerHTML=steps.map((s,i)=>{
+    const st=assessment.progress[s.id];
+    return `<div class="chip ${i===idx&&assessment.state==='capturing'?'now':''} ${st==='done'?'done':''} ${st==='skipped'?'skipped':''}"></div>`;
+  }).join("");
+}
+
+/* Laplacian blur score — client-side physics check (compliance analyzer, on-device half) */
+function blurScore(img){
+  const w=160,h=120,c=document.createElement("canvas");c.width=w;c.height=h;
+  const g=c.getContext("2d");g.drawImage(img,0,0,w,h);
+  const d=g.getImageData(0,0,w,h).data, gray=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++){const j=i*4;gray[i]=.299*d[j]+.587*d[j+1]+.114*d[j+2];}
+  let sum=0,sq=0,n=0;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const i=y*w+x, v=-4*gray[i]+gray[i-1]+gray[i+1]+gray[i-w]+gray[i+w];
+    sum+=v; sq+=v*v; n++;
+  }
+  const mean=sum/n; return Math.sqrt(sq/n-mean*mean); // std of laplacian
+}
+
+function renderImageStep(step){
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">${step.dynamic?'<span class="dyn">requested by analyzer</span>':'step '+(idx+1)+' of '+steps.length} · photo</span>
+    <h2>${step.title}</h2>
+    ${step.dynamic?`<p class="guidance"><b>${step.reason}</b></p>`:""}
+    <p class="guidance">${step.guidance}</p>
+    <div class="frame corners"><span></span>${ART[step.example]||""}<img class="shot" hidden alt="your photo"/></div>
+    <p class="hint" id="hint">Example framing — yours should look similar</p>
+    <div class="warn" id="warn">⚠️ <span><b>Looks blurry.</b> Hold steady and try again — sharp photos mean better recommendations.</span></div>
+    <div class="actions">
+      <input type="file" id="cam" accept="image/*" capture="environment"/>
+      <button class="btn primary" id="shoot">Open camera</button>
+      <button class="btn primary" id="accept" hidden>Use this photo</button>
+      <button class="btn ghost" id="retake" hidden>Retake</button>
+      ${step.optional||step.dynamic?'<button class="btn quiet" id="skip">Skip this step</button>':""}
+    </div>
+  </div>`;
+  const cam=$("#cam"),shot=$(".shot"),warn=$("#warn");
+  let current=null;
+  $("#shoot").onclick=()=>cam.click();
+  $("#retake").onclick=()=>cam.click();
+  cam.onchange=()=>{
+    const f=cam.files[0]; if(!f)return;
+    const url=URL.createObjectURL(f), img=new Image();
+    img.onload=()=>{
+      const score=blurScore(img);
+      shot.src=url; shot.hidden=false; $(".example")?.remove();
+      $("#hint").textContent=`Sharpness score: ${score.toFixed(1)}`;
+      warn.classList.toggle("show",score<12); // retake-flavored EvidenceRequest, inline UX
+      $("#shoot").hidden=true; $("#accept").hidden=false; $("#retake").hidden=false;
+      current={file:f,url,score};
+    };
+    img.src=url;
+  };
+  $("#accept").onclick=()=>{
+    assessment.evidence.push({
+      stepId:step.id, type:"image", name:current.file.name||step.id+".jpg",
+      capturedAt:new Date().toISOString(), sharpness:+current.score.toFixed(1),
+      origin:step.dynamic?"evidence_request":"protocol_step", url:current.url
+    });
+    assessment.progress[step.id]="done"; next();
+  };
+  const sk=$("#skip"); if(sk) sk.onclick=()=>{assessment.progress[step.id]="skipped"; next();};
+}
+
+function renderFormStep(step){
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">step ${idx+1} of ${steps.length} · questions</span>
+    <h2>${step.title}</h2>
+    <p class="guidance">${step.guidance}</p>
+    ${step.questions.map(q=>`
+      <fieldset><legend>${q.label}</legend>
+        ${q.options.map(o=>`<label class="opt"><input type="radio" name="${q.id}" value="${o}"/> ${o}</label>`).join("")}
+      </fieldset>`).join("")}
+    <div class="actions"><button class="btn primary" id="submit" disabled>Continue</button></div>
+  </div>`;
+  const need=step.questions.map(q=>q.id);
+  app.onchange=()=>{ $("#submit").disabled=!need.every(id=>app.querySelector(`[name=${id}]:checked`)); };
+  $("#submit").onclick=()=>{
+    need.forEach(id=>assessment.answers[id]=app.querySelector(`[name=${id}]:checked`).value);
+    assessment.progress[step.id]="done";
+    /* Branching → refinement loop: rule analyzer emits an EvidenceRequest */
+    if(assessment.answers.drainageIssues==="Yes" && assessment.refinementRound<PROTOCOL.refinementPolicy.maxRefinementRounds){
+      assessment.refinementRound++; steps.push(DRAINAGE_REQUEST);
+    }
+    next();
+  };
+}
+
+function renderReview(){
+  assessment.state="review";
+  const photos=assessment.evidence;
+  app.innerHTML=`
+  <div class="card">
+    <span class="eyebrow">review</span>
+    <h2>Everything the expert will see</h2>
+    <div class="thumbs">${photos.map(e=>`<figure><img src="${e.url}" alt="${e.stepId}"/><figcaption>${e.stepId}</figcaption></figure>`).join("")}</div>
+    <dl>${Object.entries(assessment.answers).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    <div class="actions">
+      <button class="btn primary" id="send">Send to expert</button>
+      <button class="btn ghost" id="dl">Download assessment manifest (JSON)</button>
+    </div>
+  </div>`;
+  $("#dl").onclick=()=>{
+    const manifest={...assessment, evidence:assessment.evidence.map(({url,...e})=>e)};
+    const b=new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=assessment.id+".json";a.click();
+  };
+  $("#send").onclick=renderDone;
+}
+
+function renderDone(){
+  assessment.state="completed";
+  renderChips();
+  app.innerHTML=`
+  <div class="card" style="text-align:center">
+    <svg class="done-icon" viewBox="0 0 64 64" fill="none" stroke="#2E7D4F" stroke-width="4" stroke-linecap="round"><circle cx="32" cy="32" r="27"/><path d="M20 33l8 8 16-18"/></svg>
+    <h2>Assessment sent</h2>
+    <p class="guidance">In the real flow this lands in a <b>human analyzer's</b> review queue —
+    an architect studies your ${assessment.evidence.length} photos and answers, then sends back
+    findings and recommendations. AI analyzers will later plug into the exact same slot.</p>
+    <p class="hint">${assessment.id} · protocol ${assessment.protocolVersion} · refinement rounds used: ${assessment.refinementRound}</p>
+  </div>`;
+}
+
+function next(){
+  idx++;
+  renderChips();
+  if(idx<steps.length){
+    const s=steps[idx];
+    s.captureType==="image"?renderImageStep(s):renderFormStep(s);
+  } else renderReview();
+}
+
+/* start */
+renderChips();
+renderImageStep(steps[0]);
+</script>
+</body>
+</html>

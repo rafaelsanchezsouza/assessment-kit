@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gaf.dev/schemas/protocol.schema.json",
+  "title": "Assessment Protocol",
+  "type": "object",
+  "required": ["id", "version", "subjectType", "steps", "refinementPolicy"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "subjectType": { "type": "string" },
+    "refinementPolicy": {
+      "type": "object",
+      "required": ["maxRefinementRounds"],
+      "properties": {
+        "maxRefinementRounds": { "type": "integer", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": ["id", "title", "guidance", "captureType", "feedsAnalyzers"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "guidance": { "type": "string" },
+        "captureType": { "enum": ["image", "structured_input", "document"] },
+        "captureSpec": { "type": "object" },
+        "overlayRef": { "type": "string" },
+        "exampleRef": { "type": "string" },
+        "feedsAnalyzers": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "validationRules": { "type": "object" },
+        "optional": { "type": "boolean" },
+        "condition": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
