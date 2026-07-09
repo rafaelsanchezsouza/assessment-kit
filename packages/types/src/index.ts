@@ -269,6 +269,8 @@ export interface AssessmentRepository {
   /** Persists state/progress/refinementRound changes. */
   update(assessment: Assessment): Promise<void>;
   findBySubject(subjectId: string): Promise<Assessment[]>;
+  /** Work queues: e.g. review UIs listing everything awaiting a human analyzer. */
+  findByState(state: AssessmentState): Promise<Assessment[]>;
 }
 
 export interface EvidenceRepository {

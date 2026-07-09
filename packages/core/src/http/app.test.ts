@@ -259,3 +259,33 @@ test('evidence blob upload + retrieval round-trip', async () => {
   const missing = await supertest(app).get('/blobs/evidence/nope/nope');
   assert.equal(missing.status, 404);
 });
+
+test('GET /assessments?state= lists the review work-queue; bad state is 400', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToReview(app);
+
+  const inReview = await supertest(app).get('/assessments?state=review');
+  assert.equal(inReview.status, 200);
+  assert.deepEqual(inReview.body.map((a: { id: string }) => a.id), [assessmentId]);
+
+  const empty = await supertest(app).get('/assessments?state=completed');
+  assert.deepEqual(empty.body, []);
+
+  const bad = await supertest(app).get('/assessments?state=nonsense');
+  assert.equal(bad.status, 400);
+  const missing = await supertest(app).get('/assessments');
+  assert.equal(missing.status, 400);
+});
+
+test('GET /assessments/:id/evidence returns evidence with link metadata', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToReview(app);
+
+  const res = await supertest(app).get(`/assessments/${assessmentId}/evidence`);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].link.stepId, 'wide-shot');
+  assert.equal(res.body[0].link.origin, 'protocol_step');
+  assert.equal(res.body[0].evidence.type, 'image');
+  assert.equal(res.body[0].evidence.payloadRef, 'blob://wide.jpg');
+});

@@ -2,7 +2,13 @@
 // client-side quality checks + resumable upload queue against @gaf/core's
 // HTTP API. Domain-agnostic by construction: all content arrives as data.
 export { ApiError, GafApiClient } from './api/client.ts';
-export type { BlobUploadResult, GafApiClientOptions, ProgressEvidence } from './api/client.ts';
+export type {
+  AssessmentEvidenceItem,
+  BlobUploadResult,
+  GafApiClientOptions,
+  ProgressEvidence,
+  ReviewSubmission,
+} from './api/client.ts';
 export {
   analysisImageData,
   blurriness,

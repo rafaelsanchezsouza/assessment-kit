@@ -1,5 +1,7 @@
 import type {
   Assessment,
+  AssessmentEvidence,
+  AssessmentState,
   Evidence,
   EvidenceRequest,
   Finding,
@@ -33,6 +35,18 @@ export interface BlobUploadResult {
 }
 
 export type ProgressEvidence = Omit<Evidence, 'id' | 'subjectId'>;
+
+/** One captured item as a reviewer sees it: the evidence plus its link metadata. */
+export interface AssessmentEvidenceItem {
+  link: AssessmentEvidence;
+  evidence: Evidence;
+}
+
+/** Review submission: server assigns ids and denormalized references. */
+export interface ReviewSubmission {
+  findings: Array<Omit<Finding, 'id' | 'assessmentId' | 'subjectId'>>;
+  evidenceRequests: Array<Omit<EvidenceRequest, 'id' | 'assessmentId'>>;
+}
 
 /**
  * Thin typed client for @gaf/core's HTTP API. Deliberately dumb: no caching,
@@ -85,6 +99,21 @@ export class GafApiClient {
 
   submitAssessment(id: string): Promise<Assessment> {
     return this.json('POST', `/assessments/${encodeURIComponent(id)}/submit`);
+  }
+
+  /** Work-queue listing for review/monitoring UIs. */
+  listAssessments(state: AssessmentState): Promise<Assessment[]> {
+    return this.json('GET', `/assessments?state=${encodeURIComponent(state)}`);
+  }
+
+  /** Everything captured for an assessment, with link metadata (stepId, origin). */
+  getAssessmentEvidence(assessmentId: string): Promise<AssessmentEvidenceItem[]> {
+    return this.json('GET', `/assessments/${encodeURIComponent(assessmentId)}/evidence`);
+  }
+
+  /** Resolve a pending human review (Wizard-of-Oz analyzer side). */
+  submitReview(assessmentId: string, review: ReviewSubmission): Promise<{ accepted: boolean }> {
+    return this.json('POST', `/reviews/${encodeURIComponent(assessmentId)}`, review);
   }
 
   getFindings(assessmentId: string): Promise<Finding[]> {

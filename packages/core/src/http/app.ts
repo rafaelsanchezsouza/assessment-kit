@@ -39,6 +39,20 @@ export interface AppDeps {
   blobs: BlobStore;
 }
 
+const ASSESSMENT_STATES = new Set([
+  'draft',
+  'capturing',
+  'analyzing',
+  'awaiting_evidence',
+  'review',
+  'completed',
+  'abandoned',
+]);
+
+function canBeState(value: string): value is Assessment['state'] {
+  return ASSESSMENT_STATES.has(value);
+}
+
 // Express 4 does not catch rejections from async handlers — without this
 // wrapper a failing repository call becomes an unhandled rejection and kills
 // the whole process on modern Node.
@@ -122,9 +136,31 @@ export function createApp(deps: AppDeps): Express {
     res.status(201).json(assessment);
   }));
 
+  // Work-queue listing for analyzer/review UIs, e.g. GET /assessments?state=review
+  app.get('/assessments', wrap(async (req, res) => {
+    const state = req.query.state;
+    if (typeof state !== 'string' || !canBeState(state)) {
+      res.status(400).json({ error: 'a valid ?state= filter is required' });
+      return;
+    }
+    res.json(await deps.assessments.findByState(state));
+  }));
+
   app.get('/assessments/:id', wrap(async (req, res) => {
     const assessment = await getAssessmentOr404(req, res);
     if (assessment) res.json(assessment);
+  }));
+
+  // Evidence attached to an assessment, with its link metadata (stepId, origin) —
+  // what a reviewer needs to see everything the user captured.
+  app.get('/assessments/:id/evidence', wrap(async (req, res) => {
+    const assessment = await getAssessmentOr404(req, res);
+    if (!assessment) return;
+    const links = await deps.evidence.findByAssessment(assessment.id);
+    const items = await Promise.all(
+      links.map(async (link) => ({ link, evidence: await deps.evidence.get(link.evidenceId) })),
+    );
+    res.json(items.filter((i) => i.evidence !== null));
   }));
 
   app.post('/assessments/:id/start', wrap(async (req, res) => {

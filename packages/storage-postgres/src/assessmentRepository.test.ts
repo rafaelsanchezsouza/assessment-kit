@@ -42,4 +42,10 @@ test('create/get/update/findBySubject round-trip', async (t) => {
   const bySubject = await assessments.findBySubject(subjectId);
   assert.equal(bySubject.length, 1);
   assert.equal(bySubject[0]?.id, assessmentId);
+
+  // findByState: the work-queue query (shared dev DB may hold other rows — use `some`)
+  const capturing = await assessments.findByState('capturing');
+  assert.ok(capturing.some((a) => a.id === assessmentId));
+  const abandoned = await assessments.findByState('abandoned');
+  assert.ok(!abandoned.some((a) => a.id === assessmentId));
 });

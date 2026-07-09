@@ -67,6 +67,10 @@ export class InMemoryAssessmentRepository implements AssessmentRepository {
   async findBySubject(subjectId: string): Promise<Assessment[]> {
     return [...this.rows.values()].filter((a) => a.subjectId === subjectId);
   }
+
+  async findByState(state: Assessment['state']): Promise<Assessment[]> {
+    return [...this.rows.values()].filter((a) => a.state === state);
+  }
 }
 
 export class InMemoryEvidenceRepository implements EvidenceRepository {

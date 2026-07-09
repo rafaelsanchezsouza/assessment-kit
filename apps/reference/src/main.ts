@@ -1,8 +1,12 @@
-// Clone-and-run demo: loads the demo protocol, wires the Postgres storage
+// Clone-and-run composition root: loads protocols, wires the Postgres storage
 // adapter + HumanAnalyzer + Orchestrator into @gaf/core's HTTP API, and
 // starts listening. Run `pnpm --filter @gaf/storage-postgres migrate`
 // against a running Postgres (see its docker-compose.yml) before starting.
-import { readFileSync } from 'node:fs';
+//
+// PROTOCOLS_DIR (colon-separated list of directories) points at the protocol
+// YAML to serve — this is how a vertical runs the same server against its own
+// private protocols without any code change. Defaults to the repo's demo dir.
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HumanAnalyzer } from '@gaf/analyzer-human';
@@ -13,20 +17,42 @@ import type { Protocol } from '@gaf/types';
 import { load as parseYaml } from 'js-yaml';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const protocolPath = resolve(here, '../../../protocols/demo/backyard-quick-check.yaml');
+const defaultProtocolDir = resolve(here, '../../../protocols/demo');
+const protocolDirs = (process.env.PROTOCOLS_DIR ?? defaultProtocolDir)
+  .split(':')
+  .filter(Boolean)
+  .map((dir) => resolve(dir));
 
-async function main(): Promise<void> {
-  const doc = parseYaml(readFileSync(protocolPath, 'utf8'));
-  const { valid, errors } = validateProtocol(doc, dirname(protocolPath));
-  if (!valid) {
-    console.error(`invalid demo protocol at ${protocolPath}:`, errors);
+function loadProtocols(): Protocol[] {
+  const protocols: Protocol[] = [];
+  for (const dir of protocolDirs) {
+    const files = readdirSync(dir).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
+    for (const file of files) {
+      const path = resolve(dir, file);
+      const doc = parseYaml(readFileSync(path, 'utf8'));
+      const { valid, errors } = validateProtocol(doc, dir);
+      if (!valid) {
+        console.error(`invalid protocol at ${path}:`, errors);
+        process.exit(1);
+      }
+      protocols.push(doc as Protocol);
+    }
+  }
+  if (protocols.length === 0) {
+    console.error(`no protocol YAML found in: ${protocolDirs.join(', ')}`);
     process.exit(1);
   }
-  const protocol = doc as Protocol;
+  return protocols;
+}
+
+async function main(): Promise<void> {
+  const protocols = loadProtocols();
 
   const pool = getPool();
   const storage = createPostgresStorage(pool);
-  await storage.protocols.save(protocol);
+  for (const protocol of protocols) {
+    await storage.protocols.save(protocol);
+  }
 
   const humanAnalyzer = new HumanAnalyzer();
   const orchestrator = new Orchestrator({
@@ -51,7 +77,7 @@ async function main(): Promise<void> {
   const port = Number(process.env.PORT ?? 3002);
   app.listen(port, () => {
     console.log(`@gaf/reference-app listening on http://localhost:${port}`);
-    console.log(`demo protocol loaded: ${protocol.id}@${protocol.version}`);
+    for (const p of protocols) console.log(`protocol loaded: ${p.id}@${p.version}`);
   });
 }
 

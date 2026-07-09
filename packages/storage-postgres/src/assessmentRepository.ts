@@ -54,6 +54,11 @@ export class PostgresAssessmentRepository implements AssessmentRepository {
     ]);
     return rows.map(toAssessment);
   }
+
+  async findByState(state: AssessmentState): Promise<Assessment[]> {
+    const { rows } = await this.pool.query('SELECT * FROM assessments WHERE state = $1', [state]);
+    return rows.map(toAssessment);
+  }
 }
 
 interface AssessmentRow {
