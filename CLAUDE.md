@@ -91,7 +91,9 @@ not a target).
   (`packages/core/src/http/app.ts`, Express): subjects, assessments (create/start/
   progress+evidence/submit), `/reviews/:assessmentId` for the human-analyzer loop,
   findings/evidence-requests reads, `GET /protocols/:id/:version`, binary evidence
-  upload (`POST /assessments/:id/evidence-blob` → `payloadRef`) + `GET /blobs/*`.
+  upload (`POST /assessments/:id/evidence-blob` → `payloadRef`) + `GET /blobs/*`,
+  `GET /assessments?state=` (review work-queue) and `GET /assessments/:id/evidence`
+  (evidence + link metadata, what a reviewer sees).
   Async handlers are rejection-safe (`wrap()` + error middleware — a failing
   repository call returns 500 instead of killing the process; regression-tested).
   `deps` is fully interface-typed against
@@ -163,17 +165,25 @@ not a target).
    structured input, skip, review loop, byte-identical blob round-trip). Remaining
    niceties: overlay SVG rendering (currently a data-attribute hook), getUserMedia
    HUD, protocol-level i18n, request-body validation for friendlier 400s.
-4. `@gaf/analyzer-human` has a minimal working loop (in-memory, no UI yet) — a
-   real review UI is the next blocker for the full Wizard-of-Oz experience
-   (reviewers currently answer via `POST /reviews/:assessmentId` with curl).
+4. Review UI: **done, in the domain layer** (user decision — less abstraction).
+   `../nativa-domain/app` is the first real Nativa app: comerciante view
+   (GuidedCapture + PT-BR protocol) and fornecedor view (review queue via
+   `GET /assessments?state=review`, evidence gallery, findings/evidence-request
+   composer → `POST /reviews`). The framework only gained generic surfaces
+   (findByState, evidence read, client review methods, `PROTOCOLS_DIR` on
+   apps/reference). `analyzer-human`'s in-memory pending queue still won't
+   survive a server restart — durable pending reviews remain a follow-up.
 5. Then: conditions/recommendations persistence, fulfillment event bus, evidence
    telemetry events (see plan.md backlog), first AI analyzer (Condition derivation
    is deliberately NOT in the Orchestrator — it's private vertical content per
    docs/domain-model.md §6; it'll plug in later as another `rule`-kind analyzer
    through the same orchestrator seam).
 
-Immediate next task: **the human review UI** (build-order item 4) — the last
-missing piece of the Wizard-of-Oz loop now that capture works end to end.
+Immediate next task: **solution-first script composition** (decision 7 made
+real): catalog → selected solutions → composed deduplicated shooting script in
+`@gaf/core`/`capture-web`, so the domain catalog drives the comerciante flow
+the way the v2 prototype demonstrated. Then the item-5 list (conditions/
+recommendations persistence, fulfillment events, telemetry seam).
 
 ## Open questions (parked, see docs/domain-model.md §7)
 

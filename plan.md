@@ -1,3 +1,30 @@
+# Review loop (Wizard-of-Oz UI) — DONE 2026-07-09
+
+> Delivered right after capture-web, with a scope decision by the user: **the
+> review UI lives in the domain repo** (`../nativa-domain/app`) as the first
+> real Nativa app — two views, comerciante (capture) and fornecedor (review) —
+> instead of a framework-side generic review app. The framework contributed
+> only generic surfaces, keeping layers decoupled:
+>
+> - `AssessmentRepository.findByState` + `GET /assessments?state=review`
+>   (work-queue listing), `GET /assessments/:id/evidence` (evidence + link
+>   metadata), `GafApiClient.listAssessments/getAssessmentEvidence/submitReview`.
+> - `apps/reference` accepts `PROTOCOLS_DIR` (colon-separated) so any vertical
+>   serves its own protocol YAML through the same composition root — no fork.
+> - Domain repo: first real protocol (`vistoria-imovel-comercial`, PT-BR,
+>   schema-validated) + `app/` (Vite, hash-routed two views, `link:` deps on
+>   the framework as the sanctioned pre-publish interim per ADR-006).
+>
+> Verified end-to-end through the SDK surfaces the views use: capture →
+> fornecedor queue → evidence request → comerciante answers → final findings
+> → `completed` (refinement round 1). ADR-006 acceptance test held: zero
+> framework `packages/*` edits were domain-specific.
+>
+> Next per CLAUDE.md: solution-first script composition, then the item-5 list
+> (conditions/recommendations persistence, fulfillment events, telemetry seam).
+
+---
+
 # @gaf/capture-web — the React capture SDK
 
 > **STATUS: DONE (2026-07-09).** Everything below is implemented and verified:
