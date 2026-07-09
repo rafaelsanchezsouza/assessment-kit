@@ -111,14 +111,18 @@ not a target).
   in `@gaf/types`. Local dev: `docker compose -f packages/storage-postgres/docker-compose.yml up -d`
   then `pnpm --filter @gaf/storage-postgres migrate`. Wired into CI (Postgres
   service container).
-- `apps/reference` — **the real composition root, no longer a stub**: loads
-  `protocols/demo/backyard-quick-check.yaml`, validates it with
-  `@gaf/protocol-tools`, wires `@gaf/storage-postgres` + `HumanAnalyzer` +
-  `Orchestrator` into `createApp`, listens on port `3002` (local only — not
-  deployed to the shared VM). `pnpm --filter @gaf/reference-app build && \
-  DATABASE_URL=... node apps/reference/dist/main.js` after the Postgres compose +
-  migrate steps above. End-to-end curl-tested against real Postgres: capture →
-  submit → human review → `completed`, findings genuinely persisted.
+- `apps/reference` — **the real composition root, no longer a stub**: loads and
+  validates every protocol YAML in `PROTOCOLS_DIR` (colon-separated dirs;
+  defaults to `protocols/demo`) — this is how a vertical serves its own
+  protocols with zero code changes. Wires `@gaf/storage-postgres` +
+  `HumanAnalyzer` + `Orchestrator` into `createApp`, listens on port `3002`
+  (local only — not deployed to the shared VM; the VM's :8090 is only the old
+  static prototype). Run, after the Postgres compose + migrate steps above:
+  `pnpm --filter @gaf/reference-app build && \
+  PROTOCOLS_DIR=protocols/demo:../nativa-domain/protocols \
+  DATABASE_URL=postgres://gaf:gaf@localhost:5433/gaf node apps/reference/dist/main.js`.
+  End-to-end tested against real Postgres: capture → submit → human review →
+  `completed`, findings genuinely persisted, blob round-trip byte-identical.
 - `packages/protocol-tools` — **real validator CLI** (`gaf-protocols validate <dir...>`,
   ajv 2020-12 + referential checks) and schemas for both linear protocols
   (`protocol.schema.json`) and solution-first catalogs (`catalog.schema.json`).
