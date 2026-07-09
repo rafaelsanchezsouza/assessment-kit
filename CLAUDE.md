@@ -186,6 +186,13 @@ missing piece of the Wizard-of-Oz loop now that capture works end to end.
 
 ## Conventions
 
+- **`pnpm verify` is the definition of done — run it before every commit.** It runs
+  the exact CI gates locally: build → all tests → protocol/catalog validation →
+  ADR-006 layering lint (`pnpm lint:layering`, shared with `.github/workflows/ci.yml`
+  so the two can't drift). Postgres tests need the compose DB up
+  (`DATABASE_URL=postgres://gaf:gaf@localhost:5433/gaf`); without it they skip
+  cleanly. GitHub CI stays dormant until the repo is pushed — until then this
+  command IS the CI.
 - Strict TS everywhere; `@gaf/types` has zero runtime dependencies.
 - Protocols/catalogs: YAML in repo, schema-validated in CI, never hand-edited JSON.
 - Every entity that stores an interpretation carries provenance ({id, version} of
