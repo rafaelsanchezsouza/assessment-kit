@@ -31,11 +31,7 @@ jobs:
       - run: pnpm test
       - run: pnpm protocols:validate   # demo protocols must pass the schema
       # Layering lint (ADR-006): framework packages must stay domain-agnostic.
-      # Domain knowledge arrives only as data; demo data in catalog/ and
-      # apps/prototype/ is the sanctioned exception, so only packages/ is swept.
+      # Single source of truth is the root package.json script — same check
+      # runs locally via `pnpm verify`.
       - name: layering lint
-        run: |
-          if grep -riEn 'nativa|nbs|paraiba|paraíba' packages/ --include='*.ts' --include='*.tsx' --include='*.json' --include='*.sql' --include='*.md'; then
-            echo '::error::domain identifiers found in framework packages (see ADR-006)'
-            exit 1
-          fi
+        run: pnpm lint:layering
