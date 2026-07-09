@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GAF capture demo</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; background: #f7f7f5; color: #1a1a1a; }
+      #root { max-width: 480px; margin: 0 auto; padding: 1rem; }
+      button { padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #bbb; background: #fff; cursor: pointer; }
+      button:first-child { background: #1a7f37; color: #fff; border-color: #1a7f37; }
+      .gaf-quality-warning { background: #fff3cd; padding: 0.5rem; border-radius: 8px; }
+      .gaf-evidence-request-reason { background: #e7f0fe; padding: 0.5rem; border-radius: 8px; }
+      .gaf-frame { min-height: 120px; border: 2px dashed #ccc; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+      .gaf-error { color: #b00020; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -73,6 +73,11 @@ not a target).
 13. `feedsAnalyzers` on ProtocolStep references analyzer **roles**, not concrete ids.
 14. `GAF/@gaf` is a **placeholder name** — global rename pending before first publish
     (npm scope, schema $id URLs, repo name).
+15. **Two-repo topology (ADR-006):** this repo is the public-destined framework; the
+    private domain layer lives in `../nativa-domain` (requirements handover, real
+    catalogs, eventually the Nativa app). Repos enforce visibility; packages enforce
+    layering — CI greps `packages/` for domain identifiers and fails on a hit.
+    Sessions span both repos; domain knowledge never lands in `packages/*`.
 
 ## Current state of the repo
 
@@ -85,7 +90,11 @@ not a target).
   (`runAndPersist`, `packages/core/src/orchestrator.ts`). Plus a real **HTTP API**
   (`packages/core/src/http/app.ts`, Express): subjects, assessments (create/start/
   progress+evidence/submit), `/reviews/:assessmentId` for the human-analyzer loop,
-  findings/evidence-requests reads. `deps` is fully interface-typed against
+  findings/evidence-requests reads, `GET /protocols/:id/:version`, binary evidence
+  upload (`POST /assessments/:id/evidence-blob` → `payloadRef`) + `GET /blobs/*`.
+  Async handlers are rejection-safe (`wrap()` + error middleware — a failing
+  repository call returns 500 instead of killing the process; regression-tested).
+  `deps` is fully interface-typed against
   `@gaf/types` — core never imports `@gaf/storage-postgres` or `@gaf/analyzer-human`
   directly, keeping the ports/adapters boundary real. Tested with in-memory fake
   repos (`packages/core/src/testSupport/inMemoryRepos.ts`) + supertest — no
@@ -112,8 +121,18 @@ not a target).
   ajv 2020-12 + referential checks) and schemas for both linear protocols
   (`protocol.schema.json`) and solution-first catalogs (`catalog.schema.json`).
   `pnpm protocols:validate` checks `protocols/` and `catalog/` and is wired into CI.
-- `packages/analyzer`, `analyzer-human`, `capture-web`, `forms-web` — intentional stubs
-  with responsibility comments.
+- `packages/capture-web` — **real React SDK, no longer a stub**: typed `GafApiClient`,
+  Laplacian blur + resolution checks (thresholds only from `step.validationRules`;
+  `maxBlur 0.4` ≡ the prototype's sharpness-12 on the same 160×120 downscale),
+  resumable `UploadQueue` (pluggable storage, backoff retry, 4xx = permanent fail),
+  `useAssessment` hook (create → capture → submit → poll → evidence-request loop →
+  completed), `GuidedCapture`/`StructuredInputStep` components (unstyled, `gaf-*`
+  class hooks), chrome-string i18n EN + PT-BR (domain text stays in protocol data).
+  15 node tests on the pure parts; React is a peer dependency.
+- `apps/capture-demo` — dev-only Vite host proving the SDK against `apps/reference`
+  through an `/api` proxy (no CORS needed), neutral demo protocol only:
+  `pnpm --filter @gaf/capture-demo dev` with the reference app running.
+- `packages/analyzer`, `forms-web` — intentional stubs with responsibility comments.
 - `protocols/demo/backyard-quick-check.yaml` — valid demo protocol.
 - `catalog/nbs-paraiba.yaml` — 14 NBS solutions for Paraíba with regional priorities
   (sertão/agreste/litoral), `requires` (evidence requirements), `conditionsAddressed`,
@@ -125,8 +144,8 @@ not a target).
   step → review → JSON manifest. Demonstrates the framework; does NOT import @gaf/*.
   **Deployed** at `http://csaparahyba.com.br:8090/` (shared Oracle VM, no domain/TLS of
   its own yet) — demo link, not the product.
-- CI: build + test (incl. a Postgres service container) + protocol validation
-  (`.github/workflows/ci.yml`).
+- CI: build + test (incl. a Postgres service container) + protocol validation +
+  the ADR-006 layering lint (`.github/workflows/ci.yml`).
 
 ## Build order (agreed roadmap)
 
@@ -139,20 +158,22 @@ not a target).
    and `apps/reference` running it end-to-end against real Postgres. Draft-sync
    (per-step resumability across devices) isn't separately built yet — today's
    `PATCH .../progress` is single-shot, not conflict-aware multi-device sync.
-3. `@gaf/capture-web`: port the prototype's patterns (guided HUD, blur check, upload
-   queue with retry, resumable local buffer). Still an empty stub — this is the
-   **real React frontend** and the next actual blocker; `apps/prototype/*.html`
-   are throwaway demos, not it. It now has a real backend to talk to
-   (`apps/reference`'s API — see above).
+3. `@gaf/capture-web`. **Done** (see current state): SDK + `apps/capture-demo`
+   clickable POC, verified end-to-end against the live backend (photo blob upload,
+   structured input, skip, review loop, byte-identical blob round-trip). Remaining
+   niceties: overlay SVG rendering (currently a data-attribute hook), getUserMedia
+   HUD, protocol-level i18n, request-body validation for friendlier 400s.
 4. `@gaf/analyzer-human` has a minimal working loop (in-memory, no UI yet) — a
-   real review UI is still needed for the full Wizard-of-Oz experience.
-5. Then: conditions/recommendations persistence, fulfillment event bus, first AI
-   analyzer (Condition derivation is deliberately NOT in the Orchestrator — it's
-   private vertical content per docs/domain-model.md §6; it'll plug in later as
-   another `rule`-kind analyzer through the same orchestrator seam).
+   real review UI is the next blocker for the full Wizard-of-Oz experience
+   (reviewers currently answer via `POST /reviews/:assessmentId` with curl).
+5. Then: conditions/recommendations persistence, fulfillment event bus, evidence
+   telemetry events (see plan.md backlog), first AI analyzer (Condition derivation
+   is deliberately NOT in the Orchestrator — it's private vertical content per
+   docs/domain-model.md §6; it'll plug in later as another `rule`-kind analyzer
+   through the same orchestrator seam).
 
-Immediate next task: **`@gaf/capture-web`** — the React capture SDK. It's the
-last empty-stub layer between "backend works" and an actual clickable POC.
+Immediate next task: **the human review UI** (build-order item 4) — the last
+missing piece of the Wizard-of-Oz loop now that capture works end to end.
 
 ## Open questions (parked, see docs/domain-model.md §7)
 

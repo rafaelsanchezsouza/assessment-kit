@@ -1,6 +1,28 @@
-// Guided capture SDK (React). Planned exports:
-//   <GuidedCapture protocol={...} onEvidence={...} /> — HUD + SVG overlay + step progression
-//   Client-side quality checks (laplacian blur, orientation, resolution) per step.validationRules
-//   Resumable upload queue: retry transient failures (timeout/5xx), persist progress
-//   locally (offline buffer) and sync draft state to the server (source of truth).
-export {};
+// @gaf/capture-web — guided capture SDK (React). Protocol-driven HUD +
+// client-side quality checks + resumable upload queue against @gaf/core's
+// HTTP API. Domain-agnostic by construction: all content arrives as data.
+export { ApiError, GafApiClient } from './api/client.ts';
+export type { BlobUploadResult, GafApiClientOptions, ProgressEvidence } from './api/client.ts';
+export {
+  analysisImageData,
+  blurriness,
+  checkImageQuality,
+  laplacianSharpness,
+} from './quality/blur.ts';
+export type { ImageDataLike, QualityFailure, QualityResult } from './quality/blur.ts';
+export { UploadQueue } from './uploadQueue.ts';
+export type { QueueStorage, UploadQueueOptions, UploadTask } from './uploadQueue.ts';
+export { useAssessment } from './hooks/useAssessment.ts';
+export type {
+  ActiveStep,
+  CapturePhase,
+  ImageCaptureResult,
+  UseAssessmentOptions,
+  UseAssessmentResult,
+} from './hooks/useAssessment.ts';
+export { GuidedCapture } from './components/GuidedCapture.tsx';
+export type { GuidedCaptureProps } from './components/GuidedCapture.tsx';
+export { StructuredInputStep } from './components/StructuredInputStep.tsx';
+export type { StructuredInputStepProps } from './components/StructuredInputStep.tsx';
+export { en, ptBR } from './i18n.ts';
+export type { CaptureStrings } from './i18n.ts';

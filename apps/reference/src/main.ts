@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { HumanAnalyzer } from '@gaf/analyzer-human';
 import { createApp, Orchestrator } from '@gaf/core';
 import { validateProtocol } from '@gaf/protocol-tools';
-import { createPostgresStorage, getPool } from '@gaf/storage-postgres';
+import { createPostgresStorage, FsBlobStore, getPool } from '@gaf/storage-postgres';
 import type { Protocol } from '@gaf/types';
 import { load as parseYaml } from 'js-yaml';
 
@@ -45,6 +45,7 @@ async function main(): Promise<void> {
     evidenceRequests: storage.evidenceRequests,
     orchestrator,
     reviewSubmitter: humanAnalyzer,
+    blobs: new FsBlobStore(process.env.BLOB_DIR ?? './blobs'),
   });
 
   const port = Number(process.env.PORT ?? 3002);

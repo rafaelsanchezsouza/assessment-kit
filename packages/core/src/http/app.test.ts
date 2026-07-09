@@ -6,6 +6,7 @@ import supertest from 'supertest';
 import { Orchestrator } from '../orchestrator.ts';
 import {
   InMemoryAssessmentRepository,
+  InMemoryBlobStore,
   InMemoryEvidenceRepository,
   InMemoryEvidenceRequestRepository,
   InMemoryFindingRepository,
@@ -57,6 +58,7 @@ async function buildTestApp() {
     evidenceRequests,
     orchestrator,
     reviewSubmitter: humanAnalyzer,
+    blobs: new InMemoryBlobStore(),
   });
 
   return { app, assessments, findings };
@@ -212,4 +214,48 @@ test('a rejecting repository yields a 500 response, not a process crash', async 
   // the app must still be serving requests afterwards
   const alive = await supertest(app).get(`/assessments/${assessmentId}`);
   assert.equal(alive.status, 200);
+});
+
+test('GET /protocols/:id/:version returns the protocol, 404 for unknown', async () => {
+  const { app } = await buildTestApp();
+  const found = await supertest(app).get(`/protocols/${protocol.id}/${protocol.version}`);
+  assert.equal(found.status, 200);
+  assert.equal(found.body.id, protocol.id);
+  assert.equal(found.body.steps.length, 1);
+
+  const missing = await supertest(app).get('/protocols/nope/9.9.9');
+  assert.equal(missing.status, 404);
+});
+
+test('evidence blob upload + retrieval round-trip', async () => {
+  const { app } = await buildTestApp();
+  const subjectRes = await supertest(app)
+    .post('/subjects')
+    .send({ type: 'backyard', ownerId: 'user-1' });
+  const assessmentRes = await supertest(app)
+    .post('/assessments')
+    .send({ subjectId: subjectRes.body.id, protocolId: protocol.id, protocolVersion: protocol.version });
+  const assessmentId = assessmentRes.body.id;
+
+  const photo = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const upload = await supertest(app)
+    .post(`/assessments/${assessmentId}/evidence-blob`)
+    .set('content-type', 'image/jpeg')
+    .send(photo);
+  assert.equal(upload.status, 201);
+  assert.ok(upload.body.blobKey.startsWith(`evidence/${assessmentId}/`));
+  assert.equal(upload.body.payloadRef, `blob://${upload.body.blobKey}`);
+
+  const download = await supertest(app).get(`/blobs/${upload.body.blobKey}`).buffer(true);
+  assert.equal(download.status, 200);
+  assert.deepEqual(download.body, photo);
+
+  const empty = await supertest(app)
+    .post(`/assessments/${assessmentId}/evidence-blob`)
+    .set('content-type', 'image/jpeg')
+    .send(Buffer.alloc(0));
+  assert.equal(empty.status, 400);
+
+  const missing = await supertest(app).get('/blobs/evidence/nope/nope');
+  assert.equal(missing.status, 404);
 });

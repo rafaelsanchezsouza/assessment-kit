@@ -1,11 +1,16 @@
 {
   "name": "@gaf/capture-web",
   "version": "0.1.0",
-  "description": "Guided photo capture React components (HUD, overlays, quality checks, upload queue)",
+  "description": "Guided capture SDK (React): protocol-driven HUD, client-side quality checks, resumable upload queue",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test" },
   "license": "Apache-2.0",
-  "dependencies": { "@gaf/types": "workspace:*" }
+  "dependencies": { "@gaf/types": "workspace:*" },
+  "peerDependencies": { "react": "^18.0.0 || ^19.0.0" },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "react": "^18.3.0"
+  }
 }

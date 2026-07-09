@@ -3,6 +3,7 @@ import type {
   AnalyzerOutput,
   Assessment,
   AssessmentRepository,
+  BlobStore,
   Evidence,
   EvidenceRepository,
   EvidenceRequestRepository,
@@ -35,6 +36,7 @@ export interface AppDeps {
   evidenceRequests: EvidenceRequestRepository;
   orchestrator: Orchestrator;
   reviewSubmitter: ReviewSubmitter;
+  blobs: BlobStore;
 }
 
 // Express 4 does not catch rejections from async handlers — without this
@@ -81,6 +83,15 @@ export function createApp(deps: AppDeps): Express {
 
   app.get('/subjects/:id/assessments', wrap(async (req, res) => {
     res.json(await deps.assessments.findBySubject(req.params.id));
+  }));
+
+  app.get('/protocols/:id/:version', wrap(async (req, res) => {
+    const protocol = await deps.protocols.get(req.params.id, req.params.version);
+    if (!protocol) {
+      res.status(404).json({ error: `no protocol ${req.params.id}@${req.params.version}` });
+      return;
+    }
+    res.json(protocol);
   }));
 
   app.post('/assessments', wrap(async (req, res) => {
@@ -156,6 +167,36 @@ export function createApp(deps: AppDeps): Express {
     assessment.progress = { ...assessment.progress, [stepId]: status };
     await deps.assessments.update(assessment);
     res.json(assessment);
+  }));
+
+  // Raw-body route: binary evidence payloads (photos, documents). The client
+  // uploads the blob first, then references the returned payloadRef in the
+  // evidence it attaches via PATCH .../progress. contentType is not persisted
+  // by the BlobStore port — clients record it in evidence.metadata.
+  app.post(
+    '/assessments/:id/evidence-blob',
+    express.raw({ type: '*/*', limit: '25mb' }),
+    wrap(async (req, res) => {
+      const assessment = await getAssessmentOr404(req, res);
+      if (!assessment) return;
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        res.status(400).json({ error: 'request body must be a non-empty binary payload' });
+        return;
+      }
+      const key = `evidence/${assessment.id}/${randomUUID()}`;
+      await deps.blobs.put(key, req.body, req.headers['content-type'] ?? 'application/octet-stream');
+      res.status(201).json({ blobKey: key, payloadRef: `blob://${key}` });
+    }),
+  );
+
+  app.get('/blobs/*', wrap(async (req, res) => {
+    const key = (req.params as Record<string, string>)[0];
+    const data = await deps.blobs.get(key);
+    if (!data) {
+      res.status(404).json({ error: `no blob ${key}` });
+      return;
+    }
+    res.type('application/octet-stream').send(data);
   }));
 
   app.post('/assessments/:id/submit', wrap(async (req, res) => {

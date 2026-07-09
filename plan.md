@@ -1,7 +1,13 @@
-# @gaf/capture-web — the React capture SDK (next task)
+# @gaf/capture-web — the React capture SDK
 
-> Replaces the previous plan (storage ports + Postgres adapter), which is
-> **fully delivered and verified** — see "Status of the previous plan" below.
+> **STATUS: DONE (2026-07-09).** Everything below is implemented and verified:
+> backend gaps (§1), the SDK (§2), `apps/capture-demo` (§3), git init + private
+> remotes + layering lint (§4), all verification steps (55 tests green, SDK-level
+> e2e with byte-identical blob round-trip, lint passing). Deviations from plan:
+> overlay SVG rendering is a `data-overlay` hook not yet an inline render;
+> getUserMedia HUD deferred (file-input capture first, as planned); request-body
+> validation still missing (400s arrive as 500s — noted in backlog). Next task
+> per CLAUDE.md: the human review UI.
 
 ## Context
 

@@ -2,6 +2,7 @@ import type {
   Assessment,
   AssessmentEvidence,
   AssessmentRepository,
+  BlobStore,
   Evidence,
   EvidenceRepository,
   EvidenceRequest,
@@ -123,5 +124,25 @@ export class InMemoryEvidenceRequestRepository implements EvidenceRequestReposit
   async updateStatus(id: string, status: EvidenceRequest['status']): Promise<void> {
     const row = this.rows.get(id);
     if (row) row.status = status;
+  }
+}
+
+export class InMemoryBlobStore implements BlobStore {
+  private readonly blobs = new Map<string, Buffer>();
+
+  async put(key: string, data: Buffer, _contentType: string): Promise<void> {
+    this.blobs.set(key, data);
+  }
+
+  async get(key: string): Promise<Buffer | null> {
+    return this.blobs.get(key) ?? null;
+  }
+
+  async delete(key: string): Promise<void> {
+    this.blobs.delete(key);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    return this.blobs.has(key);
   }
 }
