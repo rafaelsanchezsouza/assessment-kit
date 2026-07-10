@@ -7,3 +7,5 @@ dist/
 blobs/
 handover-validacao-arquitetura.md
 .mcp.json
+.agents/
+skills-lock.json
