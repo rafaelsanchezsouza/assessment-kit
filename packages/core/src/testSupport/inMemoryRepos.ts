@@ -71,6 +71,10 @@ export class InMemoryAssessmentRepository implements AssessmentRepository {
   async findByState(state: Assessment['state']): Promise<Assessment[]> {
     return [...this.rows.values()].filter((a) => a.state === state);
   }
+
+  async findBranches(parentAssessmentId: string): Promise<Assessment[]> {
+    return [...this.rows.values()].filter((a) => a.branchOf === parentAssessmentId);
+  }
 }
 
 export class InMemoryEvidenceRepository implements EvidenceRepository {

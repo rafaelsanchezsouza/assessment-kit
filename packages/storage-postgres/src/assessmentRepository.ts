@@ -12,8 +12,8 @@ export class PostgresAssessmentRepository implements AssessmentRepository {
     await this.pool.query(
       `INSERT INTO assessments
          (id, subject_id, protocol_id, protocol_version, state, refinement_round,
-          prior_assessment_id, applied_solution_ids, progress)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          prior_assessment_id, applied_solution_ids, progress, branch_of)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         assessment.id,
         assessment.subjectId,
@@ -24,6 +24,7 @@ export class PostgresAssessmentRepository implements AssessmentRepository {
         assessment.priorAssessmentId ?? null,
         assessment.appliedSolutionIds ?? null,
         assessment.progress,
+        assessment.branchOf ?? null,
       ],
     );
   }
@@ -59,6 +60,13 @@ export class PostgresAssessmentRepository implements AssessmentRepository {
     const { rows } = await this.pool.query('SELECT * FROM assessments WHERE state = $1', [state]);
     return rows.map(toAssessment);
   }
+
+  async findBranches(parentAssessmentId: string): Promise<Assessment[]> {
+    const { rows } = await this.pool.query('SELECT * FROM assessments WHERE branch_of = $1', [
+      parentAssessmentId,
+    ]);
+    return rows.map(toAssessment);
+  }
 }
 
 interface AssessmentRow {
@@ -71,6 +79,7 @@ interface AssessmentRow {
   prior_assessment_id: string | null;
   applied_solution_ids: string[] | null;
   progress: Assessment['progress'];
+  branch_of: string | null;
 }
 
 function toAssessment(row: AssessmentRow): Assessment {
@@ -84,5 +93,6 @@ function toAssessment(row: AssessmentRow): Assessment {
     priorAssessmentId: row.prior_assessment_id ?? undefined,
     appliedSolutionIds: row.applied_solution_ids ?? undefined,
     progress: row.progress,
+    branchOf: row.branch_of ?? undefined,
   };
 }

@@ -78,8 +78,28 @@ export class GafApiClient {
     protocolId: string;
     protocolVersion: string;
     priorAssessmentId?: string;
+    /** Create a branch on top of an existing assessment (per-reviewer refinement scope). */
+    branchOf?: string;
   }): Promise<Assessment> {
     return this.json('POST', '/assessments', input);
+  }
+
+  /** Branch assessments created on top of a parent. */
+  getBranches(assessmentId: string): Promise<Assessment[]> {
+    return this.json('GET', `/assessments/${encodeURIComponent(assessmentId)}/branches`);
+  }
+
+  /** The subject's full evidence library (uploads panel). */
+  getSubjectEvidence(subjectId: string): Promise<Evidence[]> {
+    return this.json('GET', `/subjects/${encodeURIComponent(subjectId)}/evidence`);
+  }
+
+  /** Attach existing evidence to an assessment step (panel attach / branch merge). */
+  linkEvidence(
+    assessmentId: string,
+    input: { evidenceId: string; stepId: string; origin?: AssessmentEvidence['origin'] },
+  ): Promise<AssessmentEvidence> {
+    return this.json('POST', `/assessments/${encodeURIComponent(assessmentId)}/evidence-links`, input);
   }
 
   getAssessment(id: string): Promise<Assessment> {

@@ -5,6 +5,7 @@ import type {
   AssessmentRepository,
   BlobStore,
   Evidence,
+  EvidenceOrigin,
   EvidenceRepository,
   EvidenceRequestRepository,
   FindingRepository,
@@ -99,6 +100,16 @@ export function createApp(deps: AppDeps): Express {
     res.json(await deps.assessments.findBySubject(req.params.id));
   }));
 
+  // The subject's evidence library ("uploads panel"): everything ever captured
+  // for this subject, across all assessments and branches.
+  app.get('/subjects/:id/evidence', wrap(async (req, res) => {
+    if (!(await deps.subjects.get(req.params.id))) {
+      res.status(404).json({ error: `no subject ${req.params.id}` });
+      return;
+    }
+    res.json(await deps.evidence.findBySubject(req.params.id));
+  }));
+
   app.get('/protocols/:id/:version', wrap(async (req, res) => {
     const protocol = await deps.protocols.get(req.params.id, req.params.version);
     if (!protocol) {
@@ -109,7 +120,7 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.post('/assessments', wrap(async (req, res) => {
-    const { subjectId, protocolId, protocolVersion, priorAssessmentId } = req.body;
+    const { subjectId, protocolId, protocolVersion, priorAssessmentId, branchOf } = req.body;
     if (!subjectId || !protocolId || !protocolVersion) {
       res.status(400).json({ error: 'subjectId, protocolId and protocolVersion are required' });
       return;
@@ -122,6 +133,17 @@ export function createApp(deps: AppDeps): Express {
       res.status(404).json({ error: `no protocol ${protocolId}@${protocolVersion}` });
       return;
     }
+    if (branchOf) {
+      const parent = await deps.assessments.get(branchOf);
+      if (!parent) {
+        res.status(404).json({ error: `no parent assessment ${branchOf}` });
+        return;
+      }
+      if (parent.subjectId !== subjectId) {
+        res.status(400).json({ error: 'branch must share the parent assessment subject' });
+        return;
+      }
+    }
     const assessment: Assessment = {
       id: randomUUID(),
       subjectId,
@@ -130,10 +152,55 @@ export function createApp(deps: AppDeps): Express {
       state: 'draft',
       refinementRound: 0,
       priorAssessmentId,
+      branchOf,
       progress: {},
     };
     await deps.assessments.create(assessment);
     res.status(201).json(assessment);
+  }));
+
+  app.get('/assessments/:id/branches', wrap(async (req, res) => {
+    if (!(await getAssessmentOr404(req, res))) return;
+    res.json(await deps.assessments.findBranches(req.params.id));
+  }));
+
+  // Attach EXISTING evidence to an assessment (uploads-panel attach / branch
+  // merge): creates a link, never copies bytes — evidence belongs to the
+  // Subject. origin defaults to library_reuse.
+  app.post('/assessments/:id/evidence-links', wrap(async (req, res) => {
+    const assessment = await getAssessmentOr404(req, res);
+    if (!assessment) return;
+    const { evidenceId, stepId, origin } = req.body as {
+      evidenceId: string;
+      stepId: string;
+      origin?: EvidenceOrigin;
+    };
+    if (!evidenceId || !stepId) {
+      res.status(400).json({ error: 'evidenceId and stepId are required' });
+      return;
+    }
+    const evidence = await deps.evidence.get(evidenceId);
+    if (!evidence) {
+      res.status(404).json({ error: `no evidence ${evidenceId}` });
+      return;
+    }
+    if (evidence.subjectId !== assessment.subjectId) {
+      res.status(400).json({ error: 'evidence belongs to a different subject' });
+      return;
+    }
+    const existing = await deps.evidence.findByAssessment(assessment.id);
+    if (existing.some((l) => l.evidenceId === evidenceId && l.stepId === stepId)) {
+      res.status(409).json({ error: 'evidence already linked to this assessment step' });
+      return;
+    }
+    const link = {
+      assessmentId: assessment.id,
+      evidenceId,
+      stepId,
+      origin: origin ?? ('library_reuse' as const),
+    };
+    await deps.evidence.linkToAssessment(link);
+    res.status(201).json(link);
   }));
 
   // Work-queue listing for analyzer/review UIs, e.g. GET /assessments?state=review

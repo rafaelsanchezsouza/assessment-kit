@@ -100,6 +100,15 @@ export interface Assessment {
   refinementRound: number;
   /** Set for re-assessments; activates comparison analyzers */
   priorAssessmentId?: string;
+  /**
+   * Set for branch assessments: refinements scoped to one analyzer/reviewer
+   * on top of a parent assessment (e.g. per-reviewer revision rounds whose
+   * evidence must not leak to other reviewers). Branch evidence joins the
+   * parent by linking it there (`AssessmentEvidence.origin: library_reuse`) —
+   * evidence itself always belongs to the Subject. Distinct from
+   * `priorAssessmentId`, which relates assessments *over time*.
+   */
+  branchOf?: string;
   /** Solutions applied since the prior assessment */
   appliedSolutionIds?: string[];
   /** Server-side draft sync: per-step completion, authoritative on the server */
@@ -271,6 +280,8 @@ export interface AssessmentRepository {
   findBySubject(subjectId: string): Promise<Assessment[]>;
   /** Work queues: e.g. review UIs listing everything awaiting a human analyzer. */
   findByState(state: AssessmentState): Promise<Assessment[]>;
+  /** All branch assessments created on top of a parent (see Assessment.branchOf). */
+  findBranches(parentAssessmentId: string): Promise<Assessment[]>;
 }
 
 export interface EvidenceRepository {

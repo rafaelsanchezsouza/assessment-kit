@@ -289,3 +289,90 @@ test('GET /assessments/:id/evidence returns evidence with link metadata', async 
   assert.equal(res.body[0].evidence.type, 'image');
   assert.equal(res.body[0].evidence.payloadRef, 'blob://wide.jpg');
 });
+
+test('branch assessments: create with branchOf, list branches, subject guard', async () => {
+  const { app } = await buildTestApp();
+  const parentId = await driveToReview(app);
+  const parent = (await supertest(app).get(`/assessments/${parentId}`)).body;
+
+  const branchRes = await supertest(app)
+    .post('/assessments')
+    .send({
+      subjectId: parent.subjectId,
+      protocolId: protocol.id,
+      protocolVersion: protocol.version,
+      branchOf: parentId,
+    });
+  assert.equal(branchRes.status, 201);
+  assert.equal(branchRes.body.branchOf, parentId);
+
+  const branches = await supertest(app).get(`/assessments/${parentId}/branches`);
+  assert.deepEqual(branches.body.map((b: { id: string }) => b.id), [branchRes.body.id]);
+
+  const otherSubject = await supertest(app).post('/subjects').send({ type: 'backyard', ownerId: 'x' });
+  const badBranch = await supertest(app)
+    .post('/assessments')
+    .send({
+      subjectId: otherSubject.body.id,
+      protocolId: protocol.id,
+      protocolVersion: protocol.version,
+      branchOf: parentId,
+    });
+  assert.equal(badBranch.status, 400);
+
+  const orphan = await supertest(app)
+    .post('/assessments')
+    .send({
+      subjectId: parent.subjectId,
+      protocolId: protocol.id,
+      protocolVersion: protocol.version,
+      branchOf: 'nope',
+    });
+  assert.equal(orphan.status, 404);
+});
+
+test('evidence library + linking: subject panel lists all, links attach without copying', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToReview(app);
+  const assessment = (await supertest(app).get(`/assessments/${assessmentId}`)).body;
+
+  const library = await supertest(app).get(`/subjects/${assessment.subjectId}/evidence`);
+  assert.equal(library.status, 200);
+  assert.equal(library.body.length, 1);
+  const evidenceId = library.body[0].id;
+
+  // a branch reuses the evidence via link (merge/attach semantics)
+  const branch = await supertest(app)
+    .post('/assessments')
+    .send({
+      subjectId: assessment.subjectId,
+      protocolId: protocol.id,
+      protocolVersion: protocol.version,
+      branchOf: assessmentId,
+    });
+  const linkRes = await supertest(app)
+    .post(`/assessments/${branch.body.id}/evidence-links`)
+    .send({ evidenceId, stepId: 'wide-shot' });
+  assert.equal(linkRes.status, 201);
+  assert.equal(linkRes.body.origin, 'library_reuse');
+
+  const branchEvidence = await supertest(app).get(`/assessments/${branch.body.id}/evidence`);
+  assert.equal(branchEvidence.body.length, 1);
+  assert.equal(branchEvidence.body[0].evidence.id, evidenceId);
+
+  // idempotence guard
+  const dup = await supertest(app)
+    .post(`/assessments/${branch.body.id}/evidence-links`)
+    .send({ evidenceId, stepId: 'wide-shot' });
+  assert.equal(dup.status, 409);
+
+  // cross-subject evidence is rejected
+  const stranger = await supertest(app).post('/subjects').send({ type: 'backyard', ownerId: 'y' });
+  const strangerAssessment = await supertest(app)
+    .post('/assessments')
+    .send({ subjectId: stranger.body.id, protocolId: protocol.id, protocolVersion: protocol.version });
+  const crossLink = await supertest(app)
+    .post(`/assessments/${strangerAssessment.body.id}/evidence-links`)
+    .send({ evidenceId, stepId: 'wide-shot' });
+  assert.equal(crossLink.status, 400);
+});
