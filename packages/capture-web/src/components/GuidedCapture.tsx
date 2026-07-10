@@ -18,6 +18,8 @@ export interface GuidedCaptureProps extends Omit<UseAssessmentOptions, 'pollInte
   strings?: CaptureStrings;
   pollIntervalMs?: number;
   onCompleted?: (findings: Finding[]) => void;
+  /** Fires when autoSubmit=false and every step is captured (uploads drained). */
+  onCaptured?: () => void;
   className?: string;
 }
 
@@ -25,10 +27,15 @@ export function GuidedCapture(props: GuidedCaptureProps) {
   const strings = props.strings ?? en;
   const flow = useAssessment(props);
   const completedFired = useRef(false);
+  const capturedFired = useRef(false);
 
   if (flow.phase === 'completed' && !completedFired.current) {
     completedFired.current = true;
     props.onCompleted?.(flow.findings);
+  }
+  if (flow.phase === 'captured' && !capturedFired.current) {
+    capturedFired.current = true;
+    props.onCaptured?.();
   }
 
   return (
@@ -36,6 +43,8 @@ export function GuidedCapture(props: GuidedCaptureProps) {
       {flow.phase === 'loading' && <p className="gaf-status">…</p>}
 
       {flow.phase === 'error' && <p className="gaf-error">{flow.error}</p>}
+
+      {flow.phase === 'captured' && <p className="gaf-status">✓</p>}
 
       {flow.phase === 'waiting' && (
         <p className="gaf-status">

@@ -7,6 +7,7 @@ export type CapturePhase =
   | 'loading'
   | 'capturing'
   | 'waiting' // submitted, polling for the analyzer's verdict
+  | 'captured' // all steps done, autoSubmit=false: the host owns what happens next
   | 'completed'
   | 'error';
 
@@ -28,11 +29,19 @@ export interface ImageCaptureResult {
 
 export interface UseAssessmentOptions {
   client: GafApiClient;
-  protocolId: string;
-  protocolVersion: string;
+  protocolId?: string;
+  protocolVersion?: string;
   /** Existing subject to assess; otherwise `newSubject` is created on start. */
   subjectId?: string;
   newSubject?: { type: string; ownerId: string; attributes?: Record<string, unknown> };
+  /** Resume an EXISTING assessment (created elsewhere) instead of creating one. */
+  assessmentId?: string;
+  /**
+   * When false, finishing the last step parks the flow in phase 'captured'
+   * without submitting for analysis — the host owns completion (e.g. flows
+   * where capture feeds a workflow other than the analyzer loop). Default true.
+   */
+  autoSubmit?: boolean;
   pollIntervalMs?: number;
 }
 
@@ -59,7 +68,8 @@ export interface UseAssessmentResult {
  * Entirely protocol-driven; no domain assumptions.
  */
 export function useAssessment(options: UseAssessmentOptions): UseAssessmentResult {
-  const { client, protocolId, protocolVersion, subjectId, newSubject } = options;
+  const { client, protocolId, protocolVersion, subjectId, newSubject, assessmentId } = options;
+  const autoSubmit = options.autoSubmit ?? true;
   const pollIntervalMs = options.pollIntervalMs ?? 1500;
 
   const [phase, setPhase] = useState<CapturePhase>('loading');
@@ -94,23 +104,38 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
     setPhase('error');
   }, []);
 
-  // Boot: fetch protocol, create subject if needed, create + start assessment.
+  // Boot: resume an existing assessment, or fetch protocol + create + start one.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const proto = await client.getProtocol(protocolId, protocolVersion);
-      let sid = subjectId;
-      if (!sid) {
-        if (!newSubject) throw new Error('useAssessment needs subjectId or newSubject');
-        sid = (await client.createSubject(newSubject)).id;
+      let started;
+      let proto;
+      if (assessmentId) {
+        started = await client.getAssessment(assessmentId);
+        proto = await client.getProtocol(started.protocolId, started.protocolVersion);
+        if (started.state === 'draft') started = await client.startAssessment(started.id);
+      } else {
+        if (!protocolId || !protocolVersion) {
+          throw new Error('useAssessment needs assessmentId or protocolId+protocolVersion');
+        }
+        proto = await client.getProtocol(protocolId, protocolVersion);
+        let sid = subjectId;
+        if (!sid) {
+          if (!newSubject) throw new Error('useAssessment needs subjectId or newSubject');
+          sid = (await client.createSubject(newSubject)).id;
+        }
+        const created = await client.createAssessment({ subjectId: sid, protocolId, protocolVersion });
+        started = await client.startAssessment(created.id);
       }
-      const created = await client.createAssessment({ subjectId: sid, protocolId, protocolVersion });
-      const started = await client.startAssessment(created.id);
       if (cancelled) return;
       setProtocol(proto);
       assessmentRef.current = started;
       setAssessment(started);
-      setSteps(proto.steps.map((step) => ({ step, origin: 'protocol_step' as const })));
+      setSteps(
+        proto.steps
+          .filter((step) => started.progress[step.id] === undefined)
+          .map((step) => ({ step, origin: 'protocol_step' as const })),
+      );
       setCurrentIndex(0);
       setPhase('capturing');
     })().catch((err) => {
@@ -119,7 +144,7 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
     return () => {
       cancelled = true;
     };
-  }, [client, protocolId, protocolVersion, subjectId, newSubject, fail]);
+  }, [client, protocolId, protocolVersion, subjectId, newSubject, assessmentId, fail]);
 
   const submit = useCallback(async () => {
     const current = assessmentRef.current;
@@ -136,11 +161,19 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
     setCurrentIndex((i) => {
       const next = i + 1;
       if (next >= steps.length) {
-        void submit().catch(fail);
+        if (autoSubmit) {
+          void submit().catch(fail);
+        } else {
+          // host owns completion; make sure queued uploads land first
+          void queue
+            .process()
+            .then(() => setPhase('captured'))
+            .catch(fail);
+        }
       }
       return next;
     });
-  }, [steps.length, submit, fail]);
+  }, [steps.length, submit, fail, autoSubmit, queue]);
 
   // Poll while waiting for the analyzer.
   useEffect(() => {
