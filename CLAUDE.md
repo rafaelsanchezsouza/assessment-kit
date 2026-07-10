@@ -183,11 +183,19 @@ not a target).
    docs/domain-model.md §6; it'll plug in later as another `rule`-kind analyzer
    through the same orchestrator seam).
 
-Immediate next task: **solution-first script composition** (decision 7 made
-real): catalog → selected solutions → composed deduplicated shooting script in
-`@gaf/core`/`capture-web`, so the domain catalog drives the comerciante flow
-the way the v2 prototype demonstrated. Then the item-5 list (conditions/
-recommendations persistence, fulfillment events, telemetry seam).
+Solution-first composition is **done** (`composeProtocol`/`isCompatible` in
+protocol-tools; the Nativa server composes per-solution protocols from the
+catalog at boot). The framework also gained branch assessments (`branchOf`),
+the subject evidence library + evidence-links endpoints, `assessmentId`
+resume + `autoSubmit=false` in capture-web — all driven generically by the
+domain's iteration 2 (see `../nativa-domain/docs/proximos-passos.md` for the
+cross-repo roadmap).
+
+Immediate next tasks (framework): request-body validation (friendly 400s),
+S3-compatible BlobStore adapter, IndexedDB QueueStorage, then the rename
+(decision 14) + first npm publish when the domain drops its link: deps.
+Item-5 list (conditions/recommendations persistence, fulfillment event bus)
+waits for the automatic-recommendation flow.
 
 ## Open questions (parked, see docs/domain-model.md §7)
 
