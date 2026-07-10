@@ -6,3 +6,4 @@ dist/
 .env.*
 blobs/
 handover-validacao-arquitetura.md
+.mcp.json
