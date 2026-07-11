@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Assessment, EvidenceRequest, Finding, Protocol, ProtocolStep } from '@gaf/types';
 import type { GafApiClient } from '../api/client.ts';
+import { randomId } from '../randomId.ts';
 import { UploadQueue } from '../uploadQueue.ts';
 
 export type CapturePhase =
@@ -223,7 +224,7 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
       if (!current || !currentStep) return;
       setUploadsPending((n) => n + 1);
       queue.enqueue({
-        id: crypto.randomUUID(),
+        id: randomId(),
         assessmentId: current.id,
         stepId: currentStep.step.id,
         status: 'done',
@@ -251,7 +252,7 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
       if (!current || !currentStep) return;
       setUploadsPending((n) => n + 1);
       queue.enqueue({
-        id: crypto.randomUUID(),
+        id: randomId(),
         assessmentId: current.id,
         stepId: currentStep.step.id,
         status: 'done',
@@ -271,7 +272,7 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
     const current = assessmentRef.current;
     if (!current || !currentStep) return;
     queue.enqueue({
-      id: crypto.randomUUID(),
+      id: randomId(),
       assessmentId: current.id,
       stepId: currentStep.step.id,
       status: 'skipped',
