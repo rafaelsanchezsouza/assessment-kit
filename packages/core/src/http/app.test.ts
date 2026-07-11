@@ -32,7 +32,7 @@ const protocol: Protocol = {
   refinementPolicy: { maxRefinementRounds: 1, skippable: true },
 };
 
-async function buildTestApp() {
+async function buildTestApp(authorize?: import('./app.ts').Authorizer) {
   const subjects = new InMemorySubjectRepository();
   const protocols = new InMemoryProtocolRepository();
   const assessments = new InMemoryAssessmentRepository();
@@ -59,6 +59,7 @@ async function buildTestApp() {
     orchestrator,
     reviewSubmitter: humanAnalyzer,
     blobs: new InMemoryBlobStore(),
+    authorize,
   });
 
   return { app, assessments, findings };
@@ -329,6 +330,67 @@ test('branch assessments: create with branchOf, list branches, subject guard', a
       branchOf: 'nope',
     });
   assert.equal(orphan.status, 404);
+});
+
+test('authorize hook: a deny-all authorizer forbids per-object routes, allows open ones', async () => {
+  // Seed data with an allow-all app, then re-check the same ids under deny-all.
+  const seed = await buildTestApp();
+  const assessmentId = await driveToReview(seed.app);
+  const assessment = (await supertest(seed.app).get(`/assessments/${assessmentId}`)).body;
+  const subjectId = assessment.subjectId;
+
+  const { app } = await buildTestApp(() => false);
+
+  // Per-object reads/writes are forbidden (403), never leaking existence as 404.
+  const forbidden: Array<[string, string]> = [
+    ['get', `/subjects/${subjectId}`],
+    ['get', `/subjects/${subjectId}/evidence`],
+    ['get', `/subjects/${subjectId}/assessments`],
+    ['get', `/assessments/${assessmentId}`],
+    ['get', `/assessments/${assessmentId}/evidence`],
+    ['get', `/assessments/${assessmentId}/findings`],
+    ['get', `/assessments/${assessmentId}/evidence-requests`],
+    ['get', `/assessments/${assessmentId}/branches`],
+    ['get', '/assessments?state=review'],
+    ['get', '/blobs/evidence/whatever/x'],
+    ['post', `/assessments/${assessmentId}/start`],
+    ['post', `/assessments/${assessmentId}/submit`],
+    ['patch', `/assessments/${assessmentId}/progress`],
+    ['post', `/reviews/${assessmentId}`],
+    ['post', '/subjects'],
+  ];
+  for (const [method, path] of forbidden) {
+    const res = await (supertest(app) as unknown as Record<string, (p: string) => Promise<{ status: number }>>)[
+      method
+    ](path);
+    assert.equal(res.status, 403, `${method.toUpperCase()} ${path} should be 403`);
+  }
+
+  // Creating an assessment is gated by subject ownership too.
+  const create = await supertest(app)
+    .post('/assessments')
+    .send({ subjectId, protocolId: protocol.id, protocolVersion: protocol.version });
+  assert.equal(create.status, 403);
+
+  // Protocols are catalog content, not per-owner data — left open by design.
+  const proto = await supertest(app).get(`/protocols/${protocol.id}/${protocol.version}`);
+  assert.equal(proto.status, 200);
+});
+
+test('authorize hook: an owner-scoped authorizer lets the owner through and blocks others', async () => {
+  const { app } = await buildTestApp((_req, resource) => {
+    // A toy rule: everything about subjects owned by 'user-1' is allowed; the
+    // resource carries enough for a real vertical to resolve ownership.
+    if (resource.kind === 'subject' && resource.action === 'create') return true;
+    if (resource.kind === 'assessment' && resource.action === 'create') return resource.subjectId !== 'stranger';
+    return true;
+  });
+  const created = await supertest(app).post('/subjects').send({ type: 'backyard', ownerId: 'user-1' });
+  assert.equal(created.status, 201);
+  const denied = await supertest(app)
+    .post('/assessments')
+    .send({ subjectId: 'stranger', protocolId: protocol.id, protocolVersion: protocol.version });
+  assert.equal(denied.status, 403);
 });
 
 test('evidence library + linking: subject panel lists all, links attach without copying', async () => {

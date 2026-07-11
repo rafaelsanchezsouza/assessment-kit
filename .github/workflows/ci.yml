@@ -35,3 +35,8 @@ jobs:
       # runs locally via `pnpm verify`.
       - name: layering lint
         run: pnpm lint:layering
+      # Dependency vulnerabilities. Non-blocking for now (|| true) so a fresh
+      # advisory doesn't wall off unrelated work; tighten to a hard gate once
+      # the backlog's noise level is known. Pairs with .github/dependabot.yml.
+      - name: dependency audit
+        run: pnpm audit --audit-level=high || true

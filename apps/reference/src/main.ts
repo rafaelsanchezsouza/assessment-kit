@@ -75,8 +75,12 @@ async function main(): Promise<void> {
   });
 
   const port = Number(process.env.PORT ?? 3002);
-  app.listen(port, () => {
-    console.log(`@gaf/reference-app listening on http://localhost:${port}`);
+  // Loopback by default: this app sits behind a reverse proxy, so it need not
+  // listen on 0.0.0.0. Override with HOST=0.0.0.0 for containers where the proxy
+  // lives elsewhere.
+  const host = process.env.HOST ?? '127.0.0.1';
+  app.listen(port, host, () => {
+    console.log(`@gaf/reference-app listening on http://${host}:${port}`);
     for (const p of protocols) console.log(`protocol loaded: ${p.id}@${p.version}`);
   });
 }

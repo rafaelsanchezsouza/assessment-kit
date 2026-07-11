@@ -28,6 +28,26 @@ export interface ReviewSubmitter {
   submitReview(assessmentId: string, output: AnalyzerOutput): boolean;
 }
 
+/**
+ * What a route is about to touch, in framework-neutral terms. The framework
+ * knows subjects/assessments/blobs but has no concept of who owns them — that's
+ * vertical (domain) knowledge. An `Authorizer` supplied by the composition root
+ * gets the request (so it can read whatever identity its own auth middleware
+ * attached) plus the resource, and decides. This is the ports-and-adapters seam
+ * for access control: the engine enforces *that* a decision is made; the vertical
+ * supplies *the* decision. See ADR-006 (repos enforce visibility, packages enforce
+ * layering) and docs/domain-model.md §7 (consent/authorization open questions).
+ */
+export type AuthzResource =
+  | { kind: 'subject'; action: 'read'; subjectId: string }
+  | { kind: 'subject'; action: 'create' }
+  | { kind: 'assessment'; action: 'read' | 'write'; assessmentId: string }
+  | { kind: 'assessment'; action: 'create'; subjectId: string }
+  | { kind: 'assessment-list'; action: 'read'; state: Assessment['state'] }
+  | { kind: 'blob'; action: 'read'; key: string };
+
+export type Authorizer = (req: Request, resource: AuthzResource) => boolean | Promise<boolean>;
+
 export interface AppDeps {
   subjects: SubjectRepository;
   protocols: ProtocolRepository;
@@ -38,6 +58,13 @@ export interface AppDeps {
   orchestrator: Orchestrator;
   reviewSubmitter: ReviewSubmitter;
   blobs: BlobStore;
+  /**
+   * Access-control decision hook. Omitted → allow-all, which is correct ONLY for
+   * a single-tenant/dev composition root (apps/reference, tests). Any deployment
+   * serving more than one owner's data MUST supply one, or every authenticated
+   * caller can reach every other caller's subjects, assessments and blobs.
+   */
+  authorize?: Authorizer;
 }
 
 const ASSESSMENT_STATES = new Set([
@@ -67,6 +94,18 @@ export function createApp(deps: AppDeps): Express {
   const app = express();
   app.use(express.json());
 
+  const authorize: Authorizer = deps.authorize ?? (() => true);
+
+  // Returns true if the caller may proceed; otherwise writes 403 and returns
+  // false so the handler can `if (!(await allow(...))) return;`. The default
+  // authorizer allows everything, so composition roots that don't opt in keep
+  // their current behavior (including existing 404 semantics downstream).
+  async function allow(req: Request, res: Response, resource: AuthzResource): Promise<boolean> {
+    if (await authorize(req, resource)) return true;
+    res.status(403).json({ error: 'forbidden' });
+    return false;
+  }
+
   async function getAssessmentOr404(req: Request, res: Response): Promise<Assessment | null> {
     const assessment = await deps.assessments.get(req.params.id);
     if (!assessment) {
@@ -77,6 +116,7 @@ export function createApp(deps: AppDeps): Express {
   }
 
   app.post('/subjects', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'subject', action: 'create' }))) return;
     const { type, ownerId, attributes } = req.body;
     if (!type || !ownerId) {
       res.status(400).json({ error: 'type and ownerId are required' });
@@ -88,6 +128,7 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.get('/subjects/:id', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'subject', action: 'read', subjectId: req.params.id }))) return;
     const subject = await deps.subjects.get(req.params.id);
     if (!subject) {
       res.status(404).json({ error: `no subject ${req.params.id}` });
@@ -97,12 +138,14 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.get('/subjects/:id/assessments', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'subject', action: 'read', subjectId: req.params.id }))) return;
     res.json(await deps.assessments.findBySubject(req.params.id));
   }));
 
   // The subject's evidence library ("uploads panel"): everything ever captured
   // for this subject, across all assessments and branches.
   app.get('/subjects/:id/evidence', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'subject', action: 'read', subjectId: req.params.id }))) return;
     if (!(await deps.subjects.get(req.params.id))) {
       res.status(404).json({ error: `no subject ${req.params.id}` });
       return;
@@ -125,6 +168,7 @@ export function createApp(deps: AppDeps): Express {
       res.status(400).json({ error: 'subjectId, protocolId and protocolVersion are required' });
       return;
     }
+    if (!(await allow(req, res, { kind: 'assessment', action: 'create', subjectId }))) return;
     if (!(await deps.subjects.get(subjectId))) {
       res.status(404).json({ error: `no subject ${subjectId}` });
       return;
@@ -160,6 +204,7 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.get('/assessments/:id/branches', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'read', assessmentId: req.params.id }))) return;
     if (!(await getAssessmentOr404(req, res))) return;
     res.json(await deps.assessments.findBranches(req.params.id));
   }));
@@ -168,6 +213,7 @@ export function createApp(deps: AppDeps): Express {
   // merge): creates a link, never copies bytes — evidence belongs to the
   // Subject. origin defaults to library_reuse.
   app.post('/assessments/:id/evidence-links', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'write', assessmentId: req.params.id }))) return;
     const assessment = await getAssessmentOr404(req, res);
     if (!assessment) return;
     const { evidenceId, stepId, origin } = req.body as {
@@ -210,10 +256,12 @@ export function createApp(deps: AppDeps): Express {
       res.status(400).json({ error: 'a valid ?state= filter is required' });
       return;
     }
+    if (!(await allow(req, res, { kind: 'assessment-list', action: 'read', state }))) return;
     res.json(await deps.assessments.findByState(state));
   }));
 
   app.get('/assessments/:id', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'read', assessmentId: req.params.id }))) return;
     const assessment = await getAssessmentOr404(req, res);
     if (assessment) res.json(assessment);
   }));
@@ -221,6 +269,7 @@ export function createApp(deps: AppDeps): Express {
   // Evidence attached to an assessment, with its link metadata (stepId, origin) —
   // what a reviewer needs to see everything the user captured.
   app.get('/assessments/:id/evidence', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'read', assessmentId: req.params.id }))) return;
     const assessment = await getAssessmentOr404(req, res);
     if (!assessment) return;
     const links = await deps.evidence.findByAssessment(assessment.id);
@@ -231,6 +280,7 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.post('/assessments/:id/start', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'write', assessmentId: req.params.id }))) return;
     const assessment = await getAssessmentOr404(req, res);
     if (!assessment) return;
     if (!canTransition(assessment.state, 'capturing')) {
@@ -243,6 +293,7 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.patch('/assessments/:id/progress', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'write', assessmentId: req.params.id }))) return;
     const assessment = await getAssessmentOr404(req, res);
     if (!assessment) return;
 
@@ -280,6 +331,7 @@ export function createApp(deps: AppDeps): Express {
     '/assessments/:id/evidence-blob',
     express.raw({ type: '*/*', limit: '25mb' }),
     wrap(async (req, res) => {
+      if (!(await allow(req, res, { kind: 'assessment', action: 'write', assessmentId: req.params.id }))) return;
       const assessment = await getAssessmentOr404(req, res);
       if (!assessment) return;
       if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
@@ -294,6 +346,7 @@ export function createApp(deps: AppDeps): Express {
 
   app.get('/blobs/*', wrap(async (req, res) => {
     const key = (req.params as Record<string, string>)[0];
+    if (!(await allow(req, res, { kind: 'blob', action: 'read', key }))) return;
     const data = await deps.blobs.get(key);
     if (!data) {
       res.status(404).json({ error: `no blob ${key}` });
@@ -303,6 +356,7 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.post('/assessments/:id/submit', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'write', assessmentId: req.params.id }))) return;
     const assessment = await getAssessmentOr404(req, res);
     if (!assessment) return;
 
@@ -338,6 +392,7 @@ export function createApp(deps: AppDeps): Express {
 
   app.post('/reviews/:assessmentId', wrap(async (req, res) => {
     const assessmentId = req.params.assessmentId;
+    if (!(await allow(req, res, { kind: 'assessment', action: 'write', assessmentId }))) return;
     const assessment = await deps.assessments.get(assessmentId);
     if (!assessment) {
       res.status(404).json({ error: `no assessment ${assessmentId}` });
@@ -368,11 +423,13 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.get('/assessments/:id/findings', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'read', assessmentId: req.params.id }))) return;
     if (!(await getAssessmentOr404(req, res))) return;
     res.json(await deps.findings.findByAssessment(req.params.id));
   }));
 
   app.get('/assessments/:id/evidence-requests', wrap(async (req, res) => {
+    if (!(await allow(req, res, { kind: 'assessment', action: 'read', assessmentId: req.params.id }))) return;
     if (!(await getAssessmentOr404(req, res))) return;
     res.json(await deps.evidenceRequests.findByAssessment(req.params.id));
   }));
