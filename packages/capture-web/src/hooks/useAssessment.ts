@@ -4,6 +4,31 @@ import type { GafApiClient } from '../api/client.ts';
 import { randomId } from '../randomId.ts';
 import { UploadQueue } from '../uploadQueue.ts';
 
+/**
+ * Optional observability seam. The SDK emits domain-neutral capture-funnel
+ * events; the host forwards them wherever it likes (a product-analytics tool,
+ * a log, nowhere). The framework never knows what's on the other end — no
+ * analytics vendor is referenced here by construction. Event names are stable
+ * and generic (`capture_*`); props carry only protocol/step identifiers and
+ * quality metrics, never captured payloads.
+ */
+export type CaptureEventHandler = (
+  event: CaptureEventName,
+  props?: Record<string, unknown>,
+) => void;
+
+export type CaptureEventName =
+  | 'capture_started'
+  | 'capture_step_viewed'
+  | 'capture_step_completed'
+  | 'capture_step_skipped'
+  | 'capture_quality_rejected'
+  | 'capture_evidence_requested'
+  | 'capture_submitted'
+  | 'capture_captured'
+  | 'capture_completed'
+  | 'capture_error';
+
 export type CapturePhase =
   | 'loading'
   | 'capturing'
@@ -44,6 +69,8 @@ export interface UseAssessmentOptions {
    */
   autoSubmit?: boolean;
   pollIntervalMs?: number;
+  /** Optional observability seam; see {@link CaptureEventHandler}. */
+  onEvent?: CaptureEventHandler;
 }
 
 export interface UseAssessmentResult {
@@ -85,6 +112,14 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
   const assessmentRef = useRef<Assessment | null>(null);
   const seenRequestIds = useRef<Set<string>>(new Set());
 
+  // Keep the handler in a ref so emitting never re-runs effects or rebuilds
+  // callbacks; `emit` is stable for the component's lifetime.
+  const onEventRef = useRef(options.onEvent);
+  onEventRef.current = options.onEvent;
+  const emit = useCallback<CaptureEventHandler>((event, props) => {
+    onEventRef.current?.(event, props);
+  }, []);
+
   const queue = useMemo(
     () =>
       new UploadQueue({
@@ -100,10 +135,15 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
     [client],
   );
 
-  const fail = useCallback((err: unknown) => {
-    setError(err instanceof Error ? err.message : String(err));
-    setPhase('error');
-  }, []);
+  const fail = useCallback(
+    (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      setPhase('error');
+      emit('capture_error', { message });
+    },
+    [emit],
+  );
 
   // Boot: resume an existing assessment, or fetch protocol + create + start one.
   useEffect(() => {
@@ -129,34 +169,40 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
         started = await client.startAssessment(created.id);
       }
       if (cancelled) return;
+      const initialSteps = proto.steps
+        .filter((step) => started.progress[step.id] === undefined)
+        .map((step) => ({ step, origin: 'protocol_step' as const }));
       setProtocol(proto);
       assessmentRef.current = started;
       setAssessment(started);
-      setSteps(
-        proto.steps
-          .filter((step) => started.progress[step.id] === undefined)
-          .map((step) => ({ step, origin: 'protocol_step' as const })),
-      );
+      setSteps(initialSteps);
       setCurrentIndex(0);
       setPhase('capturing');
+      emit('capture_started', {
+        protocolId: proto.id,
+        protocolVersion: proto.version,
+        stepCount: initialSteps.length,
+        resumed: Boolean(assessmentId),
+      });
     })().catch((err) => {
       if (!cancelled) fail(err);
     });
     return () => {
       cancelled = true;
     };
-  }, [client, protocolId, protocolVersion, subjectId, newSubject, assessmentId, fail]);
+  }, [client, protocolId, protocolVersion, subjectId, newSubject, assessmentId, fail, emit]);
 
   const submit = useCallback(async () => {
     const current = assessmentRef.current;
     if (!current) return;
     setPhase('waiting');
+    emit('capture_submitted');
     // captures must be on the server before analyzers run
     await queue.process();
     const submitted = await client.submitAssessment(current.id);
     assessmentRef.current = submitted;
     setAssessment(submitted);
-  }, [client, queue]);
+  }, [client, queue, emit]);
 
   const advance = useCallback(() => {
     setCurrentIndex((i) => {
@@ -168,13 +214,16 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
           // host owns completion; make sure queued uploads land first
           void queue
             .process()
-            .then(() => setPhase('captured'))
+            .then(() => {
+              setPhase('captured');
+              emit('capture_captured');
+            })
             .catch(fail);
         }
       }
       return next;
     });
-  }, [steps.length, submit, fail, autoSubmit, queue]);
+  }, [steps.length, submit, fail, autoSubmit, queue, emit]);
 
   // Poll while waiting for the analyzer.
   useEffect(() => {
@@ -188,8 +237,10 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
         setAssessment(fresh);
         if (fresh.state === 'completed') {
           clearInterval(timer);
-          setFindings(await client.getFindings(fresh.id));
+          const found = await client.getFindings(fresh.id);
+          setFindings(found);
           setPhase('completed');
+          emit('capture_completed', { findingCount: found.length });
         } else if (fresh.state === 'awaiting_evidence') {
           clearInterval(timer);
           const requests = await client.getEvidenceRequests(fresh.id);
@@ -207,6 +258,7 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
             ...fresh_.map((r) => ({ step: r.stepSpec, origin: 'evidence_request' as const, reason: r.reason })),
           ]);
           setPhase('capturing');
+          emit('capture_evidence_requested', { count: fresh_.length });
         }
       } catch (err) {
         clearInterval(timer);
@@ -214,9 +266,24 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
       }
     }, pollIntervalMs);
     return () => clearInterval(timer);
-  }, [phase, client, pollIntervalMs, submit, fail]);
+  }, [phase, client, pollIntervalMs, submit, fail, emit]);
 
   const currentStep = currentIndex < steps.length ? steps[currentIndex] : null;
+
+  // Fire `capture_step_viewed` once per step becoming current (id+index keyed).
+  const viewedKey = currentStep ? `${currentStep.step.id}:${currentIndex}` : null;
+  useEffect(() => {
+    if (phase !== 'capturing' || !currentStep) return;
+    emit('capture_step_viewed', {
+      stepId: currentStep.step.id,
+      captureType: currentStep.step.captureType,
+      origin: currentStep.origin,
+      index: currentIndex,
+      total: steps.length,
+    });
+    // currentStep/steps read fresh via viewedKey; intentionally not deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedKey, phase, emit]);
 
   const completeImageStep = useCallback(
     (capture: ImageCaptureResult) => {
@@ -241,9 +308,14 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
           },
         },
       });
+      emit('capture_step_completed', {
+        stepId: currentStep.step.id,
+        captureType: currentStep.step.captureType,
+        sharpness: capture.sharpness,
+      });
       advance();
     },
-    [queue, currentStep, advance],
+    [queue, currentStep, advance, emit],
   );
 
   const completeStructuredStep = useCallback(
@@ -263,9 +335,13 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
           metadata: { capturedAt: new Date().toISOString() },
         },
       });
+      emit('capture_step_completed', {
+        stepId: currentStep.step.id,
+        captureType: 'structured_input',
+      });
       advance();
     },
-    [queue, currentStep, advance],
+    [queue, currentStep, advance, emit],
   );
 
   const skipStep = useCallback(() => {
@@ -277,8 +353,13 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
       stepId: currentStep.step.id,
       status: 'skipped',
     });
+    emit('capture_step_skipped', {
+      stepId: currentStep.step.id,
+      captureType: currentStep.step.captureType,
+      origin: currentStep.origin,
+    });
     advance();
-  }, [queue, currentStep, advance]);
+  }, [queue, currentStep, advance, emit]);
 
   return {
     phase,

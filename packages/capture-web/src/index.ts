@@ -21,6 +21,8 @@ export type { QueueStorage, UploadQueueOptions, UploadTask } from './uploadQueue
 export { useAssessment } from './hooks/useAssessment.ts';
 export type {
   ActiveStep,
+  CaptureEventHandler,
+  CaptureEventName,
   CapturePhase,
   ImageCaptureResult,
   UseAssessmentOptions,

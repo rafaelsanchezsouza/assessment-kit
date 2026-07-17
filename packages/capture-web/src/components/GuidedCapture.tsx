@@ -3,7 +3,12 @@ import type { Finding } from '@gaf/types';
 import type { GafApiClient } from '../api/client.ts';
 import { analysisImageData, checkImageQuality, type QualityResult } from '../quality/blur.ts';
 import { en, type CaptureStrings } from '../i18n.ts';
-import { useAssessment, type ActiveStep, type UseAssessmentOptions } from '../hooks/useAssessment.ts';
+import {
+  useAssessment,
+  type ActiveStep,
+  type CaptureEventHandler,
+  type UseAssessmentOptions,
+} from '../hooks/useAssessment.ts';
 import { StructuredInputStep } from './StructuredInputStep.tsx';
 
 /**
@@ -63,6 +68,7 @@ export function GuidedCapture(props: GuidedCaptureProps) {
           onImage={flow.completeImageStep}
           onStructured={flow.completeStructuredStep}
           onSkip={flow.skipStep}
+          onEvent={props.onEvent}
         />
       )}
 
@@ -95,9 +101,10 @@ interface StepViewProps {
   }) => void;
   onStructured: (answers: Record<string, unknown>) => void;
   onSkip: () => void;
+  onEvent?: CaptureEventHandler;
 }
 
-function StepView({ active, index, total, strings, onImage, onStructured, onSkip }: StepViewProps) {
+function StepView({ active, index, total, strings, onImage, onStructured, onSkip, onEvent }: StepViewProps) {
   const { step, origin, reason } = active;
   const skippable = step.optional || origin === 'evidence_request';
 
@@ -118,7 +125,7 @@ function StepView({ active, index, total, strings, onImage, onStructured, onSkip
       {step.captureType === 'structured_input' ? (
         <StructuredInputStep step={step} strings={strings} onSubmit={onStructured} onSkip={skippable ? onSkip : undefined} />
       ) : (
-        <ImageStep step={active} strings={strings} onAccept={onImage} onSkip={skippable ? onSkip : undefined} />
+        <ImageStep step={active} strings={strings} onAccept={onImage} onSkip={skippable ? onSkip : undefined} onEvent={onEvent} />
       )}
     </div>
   );
@@ -138,11 +145,13 @@ function ImageStep({
   strings,
   onAccept,
   onSkip,
+  onEvent,
 }: {
   step: ActiveStep;
   strings: CaptureStrings;
   onAccept: StepViewProps['onImage'];
   onSkip?: () => void;
+  onEvent?: CaptureEventHandler;
 }) {
   const { step } = active;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -162,6 +171,13 @@ function ImageStep({
       img.naturalWidth,
       img.naturalHeight,
     );
+    if (quality.failures.length > 0) {
+      onEvent?.('capture_quality_rejected', {
+        stepId: step.id,
+        rules: quality.failures.map((f) => f.rule),
+        sharpness: quality.sharpness,
+      });
+    }
     const buf = new Uint8Array(await file.arrayBuffer());
     let binary = '';
     const chunk = 0x8000;
