@@ -1,3 +1,30 @@
+# Guidance loop (analyzer evidence-requests → protocol improvement) — DESIGNED 2026-07-18
+
+> Full design in `docs/guidance-loop.md`. Turns the signal the framework already
+> persists — analyzers issuing `EvidenceRequest`s (`kind: 'additional'`) because
+> the guide didn't capture what they needed — into ranked, curator-reviewable
+> suggestions to improve the protocol. Domain-neutral; passes the ADR-006 lint.
+>
+> Framework surface (small): one **optional** field `EvidenceRequest.gap`
+> (`{ topic, anchorStepId?, suggestedCaptureType? }` — a stable aggregation key,
+> like `CodedStatement.code`); a `GuidanceGapRepository` read-model port
+> (`aggregate` over `evidence_requests⋈assessments`, plus disposition get/set);
+> two routes (`GET /protocols/:id/guidance-gaps`, `PUT …/:topic/disposition`);
+> and a `GuidanceGapActionedEvent` boundary (framework STOPS — never edits YAML,
+> cf. `FulfillmentRequestedEvent`). Postgres migrations 003 (gap columns) + 004
+> (dispositions). Raw evidence-requests stay the source of truth; a gap is
+> computed on read, so nothing to keep in sync — the only new persisted state is
+> the curator's decision.
+>
+> The dashboard + the apply-to-catalog step live in the **domain** (like the
+> review UI): the event auto-drafts a `catalogo_propostas` row into the
+> especialista/admin curation that already ships. Phased: (1) contract+capture,
+> (2) aggregation+read API/dashboard, (3) disposition+event/loop-close.
+> Reuses `EvidenceRequest`, the event-boundary pattern, and the existing
+> proposals dashboard — adds one field, one port, two endpoints, one event.
+
+---
+
 # Review loop (Wizard-of-Oz UI) — DONE 2026-07-09
 
 > Delivered right after capture-web, with a scope decision by the user: **the

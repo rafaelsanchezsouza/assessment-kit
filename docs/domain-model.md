@@ -236,6 +236,10 @@ Rules:
 > and implementation-neutral.
 
 - Protocol DSL format: XLSForm subset vs. custom YAML/JSON schema.
+- ~~Turning analyzer feedback into guide improvements~~ — **designed**, see
+  `docs/guidance-loop.md` (aggregate `EvidenceRequest`s into ranked, curator-
+  reviewable `GuidanceGap`s; `GuidanceGapActionedEvent` boundary; apply-to-YAML
+  stays human/git).
 - Multi-analyzer conflict resolution (two analyzers, contradictory findings).
 - Consent/privacy model for evidence — especially faces (LGPD) and documents.
 - `plan` fulfillment orchestration (deferred by design).
