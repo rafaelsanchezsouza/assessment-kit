@@ -1,0 +1,57 @@
+# Neutral, domain-agnostic catalog fixture for the composer tests.
+# Deliberately carries NO vertical identifiers (keeps the ADR-006 layering
+# lint strict — a framework package must never reach into domain content).
+# Real catalogs live in the private domain repo; this only exercises the
+# generic base + requires composition, dedup, defaulting and schema validity.
+#
+# Lives at the package root (not under src/) so the same relative path
+# resolves from both the TS sources and the compiled dist tests.
+catalog:
+  id: demo-assessment
+  version: 0.1.0
+  subjectType: building
+  # refinementPolicy intentionally omitted so composeProtocol's default (2) applies.
+
+stepLibrary:
+  base:
+    - id: context
+      captureType: structured_input
+      title: Context
+      guidance: Tell us about the place
+      captureSpec:
+        jsonSchema:
+          type: object
+    - id: overview-photo
+      captureType: image
+      title: Overview photo
+      validationRules:
+        maxBlur: 0.4
+  shared:
+    - id: roof
+      captureType: image
+      title: Roof
+      feedsAnalyzers:
+        - roof-review
+      optional: true
+    - id: yard
+      captureType: image
+      title: Yard
+
+solutions:
+  - id: rainwater-harvesting
+    title: Rainwater harvesting
+    category: water
+    fulfillmentType: service
+    conditionsAddressed:
+      - water-scarcity
+    requires:
+      - roof
+      - yard
+  - id: shade-planting
+    title: Shade planting
+    category: vegetation
+    fulfillmentType: service
+    conditionsAddressed:
+      - heat
+    requires:
+      - yard

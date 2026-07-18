@@ -6,8 +6,13 @@ import { load as parseYaml } from 'js-yaml';
 import { composeProtocol, isCompatible } from './compose.ts';
 import { validateCatalog, validateProtocol } from './validator.ts';
 
+// Neutral in-package fixture — never the domain catalog. Keeping the framework's
+// own tests free of vertical content is the ADR-006 boundary (and the layering
+// lint) working as intended; real catalogs are exercised in the domain repo.
+// '../test-fixtures/...' resolves to the package root from both src/ (tests on
+// TS) and dist/ (compiled tests), since both are siblings under the package.
 const demoCatalog = parseYaml(
-  readFileSync(resolve(import.meta.dirname, '../../../catalog/nbs-paraiba.yaml'), 'utf8'),
+  readFileSync(resolve(import.meta.dirname, '../test-fixtures/demo-catalog.yaml'), 'utf8'),
 ) as { solutions: Array<{ id: string; requires: string[] }>; stepLibrary: { base: unknown[] } };
 
 test('composeProtocol: base + requires, deduplicated, valid against the protocol schema', () => {

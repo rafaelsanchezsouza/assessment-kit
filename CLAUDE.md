@@ -135,6 +135,12 @@ not a target).
   completed), `GuidedCapture`/`StructuredInputStep` components (unstyled, `gaf-*`
   class hooks), chrome-string i18n EN + PT-BR (domain text stays in protocol data).
   15 node tests on the pure parts; React is a peer dependency.
+  **Observability seam (2026-07-17):** optional, vendor-neutral
+  `onEvent?(name, props)` on `useAssessment`/`GuidedCapture` emits domain-neutral
+  `capture_*` funnel events (started, step_viewed/completed/skipped,
+  quality_rejected, evidence_requested, submitted, captured, completed, error).
+  No analytics vendor is referenced — the host forwards events wherever it likes,
+  keeping the ADR-006 boundary intact (the Nativa app wires them to PostHog).
 - `apps/capture-demo` — dev-only Vite host proving the SDK against `apps/reference`
   through an `/api` proxy (no CORS needed), neutral demo protocol only:
   `pnpm --filter @gaf/capture-demo dev` with the reference app running.
@@ -214,7 +220,11 @@ waits for the automatic-recommendation flow.
   so the two can't drift). Postgres tests need the compose DB up
   (`DATABASE_URL=postgres://gaf:gaf@localhost:5433/gaf`); without it they skip
   cleanly. GitHub CI stays dormant until the repo is pushed — until then this
-  command IS the CI.
+  command IS the CI. `pnpm verify` is fully green as of 2026-07-18 (the former
+  layering-lint red was fixed by pointing the composer tests at a neutral
+  in-package fixture — `packages/protocol-tools/test-fixtures/demo-catalog.yaml`
+  — instead of the domain `nbs-paraiba.yaml`; the lint stays strict rather than
+  excluding test files).
 - Strict TS everywhere; `@gaf/types` has zero runtime dependencies.
 - Protocols/catalogs: YAML in repo, schema-validated in CI, never hand-edited JSON.
 - Every entity that stores an interpretation carries provenance ({id, version} of
