@@ -17,6 +17,10 @@ export interface CaptureStrings {
   photoLooksBlurry: string;
   resolutionTooLow: string;
   optionalStep: string;
+  /** Boolean questions render as an explicit pair — never a lone checkbox, which
+   *  cannot tell "no" apart from "not answered yet". */
+  yes: string;
+  no: string;
   stepProgress: (current: number, total: number) => string;
   uploadFailedRetrying: string;
   uploadFailedPermanently: string;
@@ -36,6 +40,8 @@ export const en: CaptureStrings = {
   photoLooksBlurry: 'This photo looks blurry. Hold steady and try again — sharp photos produce better results.',
   resolutionTooLow: 'The photo resolution is too low for analysis.',
   optionalStep: 'Optional',
+  yes: 'Yes',
+  no: 'No',
   stepProgress: (current, total) => `Step ${current} of ${total}`,
   uploadFailedRetrying: 'Upload failed — retrying…',
   uploadFailedPermanently: 'Upload failed permanently. This capture was not saved.',
@@ -55,6 +61,8 @@ export const ptBR: CaptureStrings = {
   photoLooksBlurry: 'A foto parece tremida. Segure firme e tente de novo — fotos nítidas geram resultados melhores.',
   resolutionTooLow: 'A resolução da foto é baixa demais para análise.',
   optionalStep: 'Opcional',
+  yes: 'Sim',
+  no: 'Não',
   stepProgress: (current, total) => `Passo ${current} de ${total}`,
   uploadFailedRetrying: 'Falha no envio — tentando novamente…',
   uploadFailedPermanently: 'Falha permanente no envio. Esta captura não foi salva.',

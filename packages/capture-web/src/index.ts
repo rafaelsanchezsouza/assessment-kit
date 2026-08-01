@@ -32,5 +32,7 @@ export { GuidedCapture } from './components/GuidedCapture.tsx';
 export type { GuidedCaptureProps } from './components/GuidedCapture.tsx';
 export { StructuredInputStep } from './components/StructuredInputStep.tsx';
 export type { StructuredInputStepProps } from './components/StructuredInputStep.tsx';
+export { isAnswered, missingRequiredKeys } from './components/structuredAnswers.ts';
+export type { JsonSchemaObject, JsonSchemaProperty } from './components/structuredAnswers.ts';
 export { en, ptBR } from './i18n.ts';
 export type { CaptureStrings } from './i18n.ts';

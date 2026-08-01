@@ -1,27 +1,19 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ProtocolStep } from '@gaf/types';
 import type { CaptureStrings } from '../i18n.ts';
+import { missingRequiredKeys, type JsonSchemaObject, type JsonSchemaProperty } from './structuredAnswers.ts';
 
 /**
  * Minimal renderer for `captureType: structured_input` steps, driven by
  * `captureSpec.jsonSchema` (object schema, flat properties): enum → select,
- * boolean → checkbox, number/integer → number input, string → text input.
- * Just enough for capture flows — full form rendering belongs to
+ * boolean → explicit yes/no pair, number/integer → number input, string → text
+ * input. Just enough for capture flows — full form rendering belongs to
  * @gaf/forms-web.
+ *
+ * Booleans are deliberately NOT a lone checkbox: an unchecked box is
+ * indistinguishable from an unanswered question, which silently satisfies
+ * `required` with `false` and feeds analyzers a fact nobody stated.
  */
-
-interface JsonSchemaProperty {
-  type?: string;
-  enum?: unknown[];
-  title?: string;
-  description?: string;
-}
-
-interface JsonSchemaObject {
-  type?: string;
-  properties?: Record<string, JsonSchemaProperty>;
-  required?: string[];
-}
 
 export interface StructuredInputStepProps {
   step: ProtocolStep;
@@ -36,23 +28,47 @@ export function StructuredInputStep({ step, strings, onSubmit, onSkip, className
   const properties = schema.properties ?? {};
   const required = new Set(schema.required ?? []);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  // Radio groups must not collide when two steps/forms share a page.
+  const formId = useId();
 
   const setAnswer = (key: string, value: unknown) => setAnswers((prev) => ({ ...prev, [key]: value }));
 
-  const missingRequired = [...required].some((key) => answers[key] === undefined || answers[key] === '');
+  const missingRequired = missingRequiredKeys(schema, answers).length > 0;
 
   return (
     <div className={className ?? 'gaf-structured-step'}>
-      {Object.entries(properties).map(([key, prop]) => (
-        <label key={key} className="gaf-field" style={{ display: 'block', marginBottom: '0.75rem' }}>
-          <span className="gaf-field-label" style={{ display: 'block', marginBottom: '0.25rem' }}>
-            {prop.title ?? key}
-            {required.has(key) ? ' *' : ''}
-          </span>
-          {renderInput(key, prop, answers[key], setAnswer)}
-          {prop.description ? <small style={{ display: 'block' }}>{prop.description}</small> : null}
-        </label>
-      ))}
+      {Object.entries(properties).map(([key, prop]) => {
+        const label = `${prop.title ?? key}${required.has(key) ? ' *' : ''}`;
+        const description = prop.description ? <small style={{ display: 'block' }}>{prop.description}</small> : null;
+
+        // A radio group can't hang off a single <label> — the whole group needs
+        // one accessible name, so booleans get a fieldset/legend instead.
+        if (prop.type === 'boolean') {
+          return (
+            <fieldset
+              key={key}
+              className="gaf-field gaf-field-boolean"
+              style={{ display: 'block', marginBottom: '0.75rem', border: 0, padding: 0 }}
+            >
+              <legend className="gaf-field-label" style={{ marginBottom: '0.25rem', padding: 0 }}>
+                {label}
+              </legend>
+              {renderBoolean(key, answers[key], setAnswer, strings, `${formId}-${key}`)}
+              {description}
+            </fieldset>
+          );
+        }
+
+        return (
+          <label key={key} className="gaf-field" style={{ display: 'block', marginBottom: '0.75rem' }}>
+            <span className="gaf-field-label" style={{ display: 'block', marginBottom: '0.25rem' }}>
+              {label}
+            </span>
+            {renderInput(key, prop, answers[key], setAnswer)}
+            {description}
+          </label>
+        );
+      })}
       <div className="gaf-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
         <button type="button" disabled={missingRequired} onClick={() => onSubmit(answers)}>
           {strings.next}
@@ -64,6 +80,30 @@ export function StructuredInputStep({ step, strings, onSubmit, onSkip, className
         ) : null}
       </div>
     </div>
+  );
+}
+
+function renderBoolean(
+  key: string,
+  value: unknown,
+  setAnswer: (key: string, value: unknown) => void,
+  strings: CaptureStrings,
+  groupName: string,
+) {
+  return (
+    <span className="gaf-boolean-options" style={{ display: 'inline-flex', gap: '1rem' }}>
+      {[true, false].map((option) => (
+        <label key={String(option)} className="gaf-boolean-option">
+          <input
+            type="radio"
+            name={groupName}
+            checked={value === option}
+            onChange={() => setAnswer(key, option)}
+          />{' '}
+          {option ? strings.yes : strings.no}
+        </label>
+      ))}
+    </span>
   );
 }
 
@@ -86,9 +126,6 @@ function renderInput(
         ))}
       </select>
     );
-  }
-  if (prop.type === 'boolean') {
-    return <input type="checkbox" checked={Boolean(value)} onChange={(e) => setAnswer(key, e.target.checked)} />;
   }
   if (prop.type === 'number' || prop.type === 'integer') {
     return (
