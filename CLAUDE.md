@@ -134,7 +134,13 @@ not a target).
   `useAssessment` hook (create → capture → submit → poll → evidence-request loop →
   completed), `GuidedCapture`/`StructuredInputStep` components (unstyled, `gaf-*`
   class hooks), chrome-string i18n EN + PT-BR (domain text stays in protocol data).
-  15 node tests on the pure parts; React is a peer dependency.
+  22 node tests on the pure parts; React is a peer dependency.
+  **Boolean answers (2026-08-01):** `StructuredInputStep` renders `type: boolean`
+  as an explicit yes/no radio pair (`.gaf-boolean-option`), never a lone checkbox
+  — an unchecked box can't be told apart from an unanswered question and silently
+  satisfies `required` with `false`. The rule lives in `structuredAnswers.ts`
+  (`missingRequiredKeys`/`isAnswered`: `false` and `0` are answers,
+  `undefined`/`null`/`''` are not), unit-tested without a DOM.
   **Observability seam (2026-07-17):** optional, vendor-neutral
   `onEvent?(name, props)` on `useAssessment`/`GuidedCapture` emits domain-neutral
   `capture_*` funnel events (started, step_viewed/completed/skipped,
@@ -197,8 +203,14 @@ resume + `autoSubmit=false` in capture-web — all driven generically by the
 domain's iteration 2 (see `../nativa-domain/docs/proximos-passos.md` for the
 cross-repo roadmap).
 
-Immediate next tasks (framework): request-body validation (friendly 400s),
-S3-compatible BlobStore adapter, IndexedDB QueueStorage, then the rename
+Immediate next tasks (framework): **an `EvidenceRequest` never leaves
+`pending`** — `EvidenceRequestRepository.updateStatus` exists in `@gaf/types`
+but nothing in `@gaf/core` calls it when evidence arrives for the requested
+step, so the capturer keeps seeing a request they already answered. Carries a
+modelling question before any code: does a request resolve automatically on
+incoming evidence, or only once the analyzer accepts the answer? (the second
+reading needs `answered` ≠ `resolved`). Then: request-body validation (friendly
+400s), S3-compatible BlobStore adapter, IndexedDB QueueStorage, then the rename
 (decision 14) + first npm publish when the domain drops its link: deps.
 Item-5 list (conditions/recommendations persistence, fulfillment event bus)
 waits for the automatic-recommendation flow.
