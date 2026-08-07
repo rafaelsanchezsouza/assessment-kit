@@ -125,6 +125,19 @@ A dynamically generated capture step — "I need more."
 | `requested_by` | Analyzer id (human or AI) |
 | `status` | `pending` \| `fulfilled` \| `skipped` (always skippable) |
 
+**Resolution is optimistic.** Evidence linked to the request's assessment at
+`step_spec.id` resolves it (`fulfilled`); a skip resolves it too (`skipped`),
+because the capturer must never be shown a request they have already acted on.
+Every pending request on that step resolves, not just the oldest, and a request
+that already left `pending` is never rewritten.
+
+`status` therefore records **what the capturer did**, never an analyzer's opinion
+of the answer's quality. An analyzer who finds the answer inadequate does not
+reject it — it **asks again**, emitting a new request (`kind: 'retake'`) that
+names the evidence which failed to answer it. There is deliberately no
+`answered` ≠ `resolved` distinction: the second ask is the disagreement, and it
+costs one refinement round like any other.
+
 ### Condition
 Interpreted problem or goal, derived from one or more findings.
 

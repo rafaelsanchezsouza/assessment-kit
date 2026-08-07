@@ -120,11 +120,11 @@ export interface GuidanceGapRepository {
 ```
 
 Postgres (`@gaf/storage-postgres`):
-- **Migration `003_evidence_request_gap.sql`** — add nullable columns to
+- **Migration `004_evidence_request_gap.sql`** — add nullable columns to
   `evidence_requests`: `gap_topic text`, `gap_anchor_step_id text`,
   `gap_suggested_capture_type text`; partial index
   `WHERE gap_topic IS NOT NULL`. (Columns, not JSONB — cheap GROUP BY / index.)
-- **Migration `004_guidance_gap_dispositions.sql`** —
+- **Migration `005_guidance_gap_dispositions.sql`** —
   `guidance_gap_dispositions (protocol_id text, topic text, status text,
   note text, decided_by_id text, decided_by_version text, decided_at timestamptz,
   PRIMARY KEY (protocol_id, topic))`.
@@ -211,4 +211,9 @@ field, one read-model port, two endpoints, one event.
   the same loop for free; may need a confidence/weight so a noisy model doesn't
   dominate the ranking.
 - **Retake vs. additional** — confirmed: only `additional` + an explicit `gap`
-  tag counts; quality retakes never do.
+  tag counts; quality retakes never do. Since 2026-08-05 those retakes are not
+  discarded, they simply feed a *different* loop: a re-request carries
+  `inadequateEvidenceRefs` (the evidence a human judged insufficient **for that
+  question**), which is the capture-quality signal. Two axes, one entity — this
+  doc's aggregation stays about guide gaps only. Migrations renumbered
+  (003 is `evidence_request_resolution`).

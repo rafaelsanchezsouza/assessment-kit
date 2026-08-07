@@ -1,3 +1,229 @@
+# EvidenceRequest resolution + the re-request signal — DONE 2026-08-05 (dev + prod)
+
+> **Status: both slices built, verified, and live in dev and prod.**
+>
+> *Prod (2026-08-05).* Migration `framework_003_evidence_request_resolution` via
+> MCP, then `deploy.sh all`. The backfill did exactly what it was built for: the
+> **only** `evidence_request` in prod was the stuck one, and it is now
+> `fulfilled`. `check` green, deployed bundle == local build. No functional flow
+> was driven in prod on purpose — that would mean creating fake subjects and
+> demands in real data; the assurance is that the server bundle is *identical*
+> across environments and that bundle was exercised 10/10 and 6/6 in dev.
+>
+> *Slice 1 (the fix).* `pnpm verify` green, 12 new framework tests, domain
+> `check.sh` 61/61 (was 54), migration `003` applied to the dev Supabase via MCP,
+> and 10/10 assertions driving the real dev API with genuine Supabase logins —
+> request goes `pending → fulfilled`, link records `origin=evidence_request`, and
+> the uploads-panel path (which bypasses the framework's HTTP layer) resolves too.
+> Verified again by the founder in the browser: answered requests resolved, the
+> unanswered one stayed open. The five UI gaps that test exposed are filed as
+> `FB-13`…`FB-18` in the domain backlog — none is a regression.
+>
+> *Slice 2 (the signal).* `inadequateEvidenceRefs` on the contract, the Postgres
+> mapping (empty column ⇄ absent field), `POST /reviews` refusing stray refs with
+> a 400, the domain's ask-route promoting a request to `kind: 'retake'` when refs
+> are present with its own validation (it writes straight to storage), and the
+> reviewer UI: an "isso não responde" toggle on each evidence item in both
+> galleries, feeding a re-ask that says how many items it condemns. Domain
+> `check.sh` 65/65, and 6/6 against dev — a plain ask stays `additional` with no
+> refs, a re-ask becomes `retake` and its refs survive the round-trip, and refs
+> from outside the demanda are refused.
+>
+> **Prod deliberately untouched**: it holds exactly one `evidence_request` and it
+> is the stuck one, so the migration there will clear precisely the card that was
+> reported. Prod needs migration `003` **and** a server+app deploy.
+
+> Fixes the reported defect ("a request never leaves `pending`", filed as BUG-01
+> in the domain backlog) and, in the same pass, records the one thing a
+> re-request teaches: that the first answer was not good enough. Model settled in
+> a design session on 2026-08-05; every line below traces to a decision recorded
+> in "The model" — no open questions remain before coding.
+
+## The model (decided, do not relitigate)
+
+1. **Optimistic resolution.** A request is presumed satisfied once answered. The
+   requester's only recourse is to **ask again**; there is no "reject" verb and
+   no fourth status. `status` stays `pending | fulfilled | skipped`.
+2. **`status` records what the capturer did**, never the analyzer's opinion of
+   the answer's quality. (`skipped` is already a capturer action — an analyzer
+   would never skip its own request. That asymmetry is what settles the reading.)
+3. **Quality judgment rides `kind: 'retake'`,** which has always meant "the
+   capture was inadequate". A re-request is a *new* request of that kind,
+   pointing at the evidence that failed it.
+
+Consequences accepted knowingly: a request answered badly still shows as
+`fulfilled` (the recourse is a re-request), and two analyzers asking about the
+same step are both resolved by one answer (leaving one pending would resurrect
+the ghost card, which is indistinguishable from the bug).
+
+## Resolution rule
+
+> Evidence linked to a request's assessment at `stepId === request.stepSpec.id`
+> resolves it. `status: 'done'` → `fulfilled`; `status: 'skipped'` → `skipped`.
+> Applies to **every** `pending` request matching that assessment+step. Never
+> rewrites a request that already left `pending` (idempotent).
+
+A **skip is a resolution** — requests are always skippable (`domain-model.md` §4;
+`GuidedCapture.tsx:109` forces it for `origin === 'evidence_request'`), and the
+card must disappear either way: the capturer must never be shown a request they
+have already acted on.
+
+## Why the rule cannot live in the storage adapter
+
+Considered and rejected — *not* on ADR grounds (the rule carries no domain
+vocabulary and would pass the layering lint; `@gaf/core` is full of framework
+business rules and that is where they belong):
+
+- **A skip writes nothing.** `skipStep` sends `PATCH /progress` with
+  `status: 'skipped'` and no payload, so no link is created. A hook inside
+  `linkToAssessment` cannot see half the rule.
+- **A port has many implementations.** Postgres plus the in-memory fakes the
+  whole `@gaf/core` suite runs against; the rule would be written twice and
+  drift, and every future adapter would inherit the obligation.
+- **Bulk relinking.** Hosts that merge one assessment's links into another would
+  resolve requests as an invisible side effect.
+
+## Framework changes
+
+**1. `packages/types/src/index.ts`** — one additive optional field:
+
+```ts
+export interface EvidenceRequest {
+  // ...existing fields, status unchanged...
+  /** Evidence that failed to answer this request — set when an analyzer
+   *  re-asks (kind: 'retake'). The learning signal: a human judged these
+   *  inadequate *for this question*. Never a global verdict on the evidence. */
+  inadequateEvidenceRefs?: string[];
+}
+```
+
+Named `inadequate…Refs`, not `rejected…`, because it describes the evidence's
+relation to *this one request*. Mirrors `Finding.evidenceRefs` — the existing
+precedent for "an interpretation pointing at evidence".
+
+**2. `packages/core/src/evidenceRequests.ts`** (new) — the shared rule:
+
+```ts
+/** Resolves every pending request whose stepSpec.id matches. Idempotent.
+ *  Returns the ids resolved (a seam for the notification event, later). */
+export async function resolveRequestsForStep(
+  repo: EvidenceRequestRepository,
+  input: { assessmentId: string; stepId: string; outcome: 'done' | 'skipped' },
+): Promise<string[]>
+```
+
+Exported from the package root so a host that writes evidence without going
+through the HTTP API can call it — that path exists today and is why the rule is
+not inlined into the route handlers.
+
+**3. `packages/core/src/http/app.ts`** — two call sites:
+- `PATCH /assessments/:id/progress`, after the link/progress write, with
+  `outcome` taken from the request body's `status`.
+- `POST /assessments/:id/evidence-links`, with `outcome: 'done'` — attaching
+  an existing item from the subject's evidence library is a legitimate answer.
+- `POST /reviews/:assessmentId`: validate `inadequateEvidenceRefs` against
+  `deps.evidence.findByAssessment(assessmentId)` → `400` on refs that point
+  outside the assessment. (Hosts creating requests straight through the
+  repository own that check themselves; note it in the port's doc comment.)
+
+**4. `packages/storage-postgres/schema/003_evidence_request_resolution.sql`**:
+
+```sql
+-- Column follows the id-reference-list convention (text[], cf. findings.evidence_refs).
+ALTER TABLE evidence_requests
+  ADD COLUMN inadequate_evidence_refs text[] NOT NULL DEFAULT '{}';
+
+-- One-off backfill: requests answered before the resolution rule existed are
+-- stuck 'pending'. Conservative — only requests that provably have an answer.
+-- Skips left no trace anywhere and are unrecoverable; they stay 'pending' and
+-- can be skipped again.
+UPDATE evidence_requests er
+   SET status = 'fulfilled'
+ WHERE er.status = 'pending'
+   AND EXISTS (SELECT 1 FROM assessment_evidence ae
+                WHERE ae.assessment_id = er.assessment_id
+                  AND ae.step_id = er.step_spec->>'id');
+```
+
+The backfill marks past bad answers `fulfilled` too. Nothing can distinguish
+good from bad retroactively; consistent with the optimistic model.
+
+**5. `packages/storage-postgres/src/evidenceRequestRepository.ts`** — map the
+new column in both directions; `undefined` ⇄ `'{}'`.
+
+**6. `packages/capture-web/src/hooks/useAssessment.ts`** — `seenRequestIds`
+(`:248`) currently *is* the deduplicator, because `status` never moved; it dies
+on reload, so an answered request comes back as a fresh step. With `status` real,
+the server-side filter becomes the primary mechanism. Keep the set as a
+same-session guard against a poll race adding one step twice, and say so in a
+comment — its role changes from mechanism to belt-and-braces.
+
+**7. Adjacent, include or drop (flagged, not decided):** `PATCH /progress`
+hardcodes `origin: 'protocol_step'` on the link even when the evidence answers a
+request, though `domain-model.md` §3 defines `origin: 'evidence_request'` for
+exactly this. The resolution code knows which case it is at that moment, so
+setting it correctly is nearly free. Small correctness win; adds a second
+behaviour change to a bugfix. Drop it if you want the diff surgical.
+
+**8. Docs** — `domain-model.md` §EvidenceRequest gains the resolution rule and
+the optimistic semantics; `guidance-loop.md` renumbers its planned migrations
+003/004 → 004/005 and notes that `retake` + `inadequateEvidenceRefs` is a
+*second, separate* signal (capture quality) beside its own (guide gaps), so its
+"quality retakes never count" line stays true for gap aggregation only.
+
+## Domain-side work (other repo, listed for coordination)
+
+- One line in the direct-storage attach path: call `resolveRequestsForStep`
+  after linking, so answering with an item from the uploads panel resolves too.
+  Without it, one of the three ways to answer keeps the ghost card.
+- The ask-for-more route accepts `kind` and `inadequateEvidenceRefs`.
+- Reviewer UI: **"this doesn't answer it" next to a specific evidence item**
+  opens the ask form with that item preselected and others tickable. The plain
+  ask-for-more button stays as it is, producing a request with no refs — which
+  is what happens when there is nothing to point at (the question was skipped or
+  ignored). Which button was used tells you which case occurred.
+- Capturer UI needs no change: it already filters `status === 'pending'`, so the
+  card disappears the moment the rule lands.
+
+## Order of work (two shippable slices)
+
+**Slice 1 — the fix.** Items 2, 3 (first two call sites), 4 (backfill only), 6 +
+the domain's one-line call. Closes the reported defect on all three answer paths.
+**Slice 2 — the signal.** Items 1, 3 (validation), 4 (column), 5 + the domain's
+re-ask UI. Lands with slice 1 rather than later because an unrecorded
+re-request is a training example that cannot be reconstructed.
+
+## Verification
+
+- `pnpm verify` green in the framework; unit tests for `resolveRequestsForStep`
+  against the in-memory repos (done/skip/idempotent/multi-request/no-match), and
+  supertest coverage on all three HTTP answer paths.
+- Migration applied to the CI Postgres service container; a test asserts the
+  backfill flips an answered-but-pending row and leaves an unanswered one alone.
+- Driven in a real browser against the running app: answer by photo, by text, and
+  by library attach → the card disappears in all three; reload does not
+  resurrect it; a re-ask records the evidence it rejected.
+- Migrations reach dev before prod.
+
+## Out of scope, filed as backlog items
+
+- **The requester is never told his question was answered.** He finds out by
+  looking. Wants the event-boundary pattern (`FulfillmentRequestedEvent`,
+  `capture-web`'s `onEvent`) plus a notification decision — email? in-app? —
+  that has not been made. Deliberately not bundled: the fix should not grow a
+  state-machine change.
+- **`maxRefinementRounds` never binds on branch assessments.** The counter only
+  moves on re-submission (`app.ts:375`), and branch assessments are created
+  directly in `awaiting_evidence` and never submitted — so the orchestrator,
+  the only reader of the budget, never runs on them. An analyzer can therefore
+  ask a capturer for more information an unlimited number of times. Pre-existing,
+  unchanged by this work, and a product decision (how often may a reviewer
+  press a user?) rather than a bugfix.
+- Aggregation, dashboard and dataset export for the re-request signal — later,
+  alongside the `guidance-loop.md` phases.
+
+---
+
 # Guidance loop (analyzer evidence-requests → protocol improvement) — DESIGNED 2026-07-18
 
 > Full design in `docs/guidance-loop.md`. Turns the signal the framework already

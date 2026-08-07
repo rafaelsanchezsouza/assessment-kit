@@ -244,6 +244,12 @@ export function useAssessment(options: UseAssessmentOptions): UseAssessmentResul
         } else if (fresh.state === 'awaiting_evidence') {
           clearInterval(timer);
           const requests = await client.getEvidenceRequests(fresh.id);
+          // `status` is the real filter: the server resolves a request as soon as
+          // evidence (or a skip) arrives at its step. seenRequestIds is only a
+          // same-session guard against a poll adding the same step twice before
+          // that write lands — it used to be the whole mechanism, back when
+          // status never moved off `pending` and a reload resurrected answered
+          // requests.
           const fresh_ = requests.filter(
             (r: EvidenceRequest) => r.status === 'pending' && !seenRequestIds.current.has(r.id),
           );

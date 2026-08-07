@@ -11,8 +11,9 @@ export class PostgresEvidenceRequestRepository implements EvidenceRequestReposit
   async create(request: EvidenceRequest): Promise<void> {
     await this.pool.query(
       `INSERT INTO evidence_requests
-         (id, assessment_id, kind, reason, step_spec, requested_by_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         (id, assessment_id, kind, reason, step_spec, requested_by_id, status,
+          inadequate_evidence_refs)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         request.id,
         request.assessmentId,
@@ -21,6 +22,7 @@ export class PostgresEvidenceRequestRepository implements EvidenceRequestReposit
         request.stepSpec,
         request.requestedBy.analyzerId,
         request.status,
+        request.inadequateEvidenceRefs ?? [],
       ],
     );
   }
@@ -46,6 +48,7 @@ interface EvidenceRequestRow {
   step_spec: EvidenceRequest['stepSpec'];
   requested_by_id: string;
   status: EvidenceRequest['status'];
+  inadequate_evidence_refs: string[] | null;
 }
 
 function toEvidenceRequest(row: EvidenceRequestRow): EvidenceRequest {
@@ -57,5 +60,10 @@ function toEvidenceRequest(row: EvidenceRequestRow): EvidenceRequest {
     stepSpec: row.step_spec,
     requestedBy: { analyzerId: row.requested_by_id },
     status: row.status,
+    // the column defaults to '{}' — an empty list means "nothing was rejected",
+    // which the contract expresses as absence, not as an empty array
+    ...(row.inadequate_evidence_refs?.length
+      ? { inadequateEvidenceRefs: row.inadequate_evidence_refs }
+      : {}),
   };
 }

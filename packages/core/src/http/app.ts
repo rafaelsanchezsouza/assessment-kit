@@ -15,6 +15,7 @@ import type {
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { canTransition } from '../stateMachine.ts';
 import { Orchestrator } from '../orchestrator.ts';
+import { findPendingRequestsForStep, resolveRequestsForStep } from '../evidenceRequests.ts';
 
 /**
  * The `/reviews` endpoint needs to resolve a pending human-analyzer promise,
@@ -239,13 +240,24 @@ export function createApp(deps: AppDeps): Express {
       res.status(409).json({ error: 'evidence already linked to this assessment step' });
       return;
     }
+    // Attaching something already in the subject's library is a legitimate way
+    // to answer a request — the caller's explicit `origin` still wins, since it
+    // knows why it is attaching.
+    const answersRequests =
+      (await findPendingRequestsForStep(deps.evidenceRequests, assessment.id, stepId)).length > 0;
+
     const link = {
       assessmentId: assessment.id,
       evidenceId,
       stepId,
-      origin: origin ?? ('library_reuse' as const),
+      origin: origin ?? ((answersRequests ? 'evidence_request' : 'library_reuse') as EvidenceOrigin),
     };
     await deps.evidence.linkToAssessment(link);
+    await resolveRequestsForStep(deps.evidenceRequests, {
+      assessmentId: assessment.id,
+      stepId,
+      outcome: 'done',
+    });
     res.status(201).json(link);
   }));
 
@@ -307,6 +319,12 @@ export function createApp(deps: AppDeps): Express {
       return;
     }
 
+    // Answering an analyzer's request is provenance worth keeping: the link
+    // records `evidence_request` rather than `protocol_step` when this step
+    // exists because an analyzer asked for it (domain-model.md §3).
+    const answersRequests =
+      (await findPendingRequestsForStep(deps.evidenceRequests, assessment.id, stepId)).length > 0;
+
     if (evidence) {
       const evidenceRow: Evidence = { id: randomUUID(), subjectId: assessment.subjectId, ...evidence };
       await deps.evidence.create(evidenceRow);
@@ -314,12 +332,21 @@ export function createApp(deps: AppDeps): Express {
         assessmentId: assessment.id,
         evidenceId: evidenceRow.id,
         stepId,
-        origin: 'protocol_step',
+        origin: answersRequests ? 'evidence_request' : 'protocol_step',
       });
     }
 
     assessment.progress = { ...assessment.progress, [stepId]: status };
     await deps.assessments.update(assessment);
+
+    // Both outcomes resolve: a skip is an answer ("I'm not doing that"), and the
+    // capturer must never be shown a request they have already acted on.
+    await resolveRequestsForStep(deps.evidenceRequests, {
+      assessmentId: assessment.id,
+      stepId,
+      outcome: status,
+    });
+
     res.json(assessment);
   }));
 
@@ -403,6 +430,23 @@ export function createApp(deps: AppDeps): Express {
       findings?: Array<Omit<AnalyzerOutput['findings'][number], 'id' | 'assessmentId' | 'subjectId'>>;
       evidenceRequests?: Array<Omit<AnalyzerOutput['evidenceRequests'][number], 'id' | 'assessmentId'>>;
     };
+
+    // A re-request points at the evidence that failed to answer it. Those ids
+    // must belong to this assessment — a ref to someone else's evidence would
+    // be a dangling judgment nothing can render or learn from.
+    const rejected = evidenceRequests.flatMap((r) => r.inadequateEvidenceRefs ?? []);
+    if (rejected.length > 0) {
+      const linked = new Set(
+        (await deps.evidence.findByAssessment(assessmentId)).map((l) => l.evidenceId),
+      );
+      const stray = rejected.filter((id) => !linked.has(id));
+      if (stray.length > 0) {
+        res.status(400).json({
+          error: `inadequateEvidenceRefs not attached to this assessment: ${stray.join(', ')}`,
+        });
+        return;
+      }
+    }
 
     const output: AnalyzerOutput = {
       findings: findings.map((f) => ({

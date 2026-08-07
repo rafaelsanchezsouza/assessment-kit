@@ -203,17 +203,39 @@ resume + `autoSubmit=false` in capture-web — all driven generically by the
 domain's iteration 2 (see `../nativa-domain/docs/proximos-passos.md` for the
 cross-repo roadmap).
 
-Immediate next tasks (framework): **an `EvidenceRequest` never leaves
-`pending`** — `EvidenceRequestRepository.updateStatus` exists in `@gaf/types`
-but nothing in `@gaf/core` calls it when evidence arrives for the requested
-step, so the capturer keeps seeing a request they already answered. Carries a
-modelling question before any code: does a request resolve automatically on
-incoming evidence, or only once the analyzer accepts the answer? (the second
-reading needs `answered` ≠ `resolved`). Then: request-body validation (friendly
-400s), S3-compatible BlobStore adapter, IndexedDB QueueStorage, then the rename
-(decision 14) + first npm publish when the domain drops its link: deps.
-Item-5 list (conditions/recommendations persistence, fulfillment event bus)
-waits for the automatic-recommendation flow.
+**EvidenceRequest resolution (2026-08-05, half shipped).** The modelling
+question is closed and must not be reopened casually: resolution is
+**optimistic** — evidence linked at a request's `stepSpec.id` makes it
+`fulfilled`, a **skip** makes it `skipped`, every pending request on that step
+resolves, and the write is idempotent. `status` records what the *capturer* did,
+never an analyzer's opinion of the answer; an analyzer who disagrees **asks
+again** (`kind: 'retake'`), and that re-request carries
+`inadequateEvidenceRefs` — the evidence a human judged insufficient *for that
+question*, which is the capture-quality learning signal (distinct from
+`guidance-loop.md`'s guide-gap signal; both ride `EvidenceRequest`).
+The rule lives in `packages/core/src/evidenceRequests.ts`
+(`resolveRequestsForStep`), **not** in a storage adapter — a skip writes no
+link at all, so an adapter hook would only ever see half of it — and is exported
+so hosts that write evidence outside the HTTP API apply the same rule.
+Answering also stamps `origin: 'evidence_request'` on the link.
+**Complete** (both slices, live in the domain's dev environment): the rule, both
+HTTP call sites, `origin: 'evidence_request'` on answering evidence, migration
+`003` (column + a conservative backfill of requests answered before the rule
+existed), `inadequateEvidenceRefs` on the contract and in the Postgres mapping
+(empty column ⇄ absent field), and `POST /reviews` rejecting refs that point
+outside the assessment with a 400. Full plan at the top of `plan.md`.
+Three things were deliberately left out rather than bundled: the requester is
+never notified that a request was answered (wants the event-boundary pattern);
+`maxRefinementRounds` never binds on branch assessments (they never submit, so
+the orchestrator that reads the budget never runs on them); and evidence
+versioning — "the new photo replaces the rejected one, with version navigation"
+— which the current model refuses on purpose (evidence is immutable, links
+accumulate), parked as a decision rather than dropped.
+
+Then: request-body validation (friendly 400s), S3-compatible BlobStore adapter,
+IndexedDB QueueStorage, then the rename (decision 14) + first npm publish when
+the domain drops its link: deps. Item-5 list (conditions/recommendations
+persistence, fulfillment event bus) waits for the automatic-recommendation flow.
 
 ## Open questions (parked, see docs/domain-model.md §7)
 

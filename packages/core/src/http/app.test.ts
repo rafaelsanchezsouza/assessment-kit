@@ -62,7 +62,7 @@ async function buildTestApp(authorize?: import('./app.ts').Authorizer) {
     authorize,
   });
 
-  return { app, assessments, findings };
+  return { app, assessments, findings, evidence, evidenceRequests };
 }
 
 async function waitForState(
@@ -437,4 +437,160 @@ test('evidence library + linking: subject panel lists all, links attach without 
     .post(`/assessments/${strangerAssessment.body.id}/evidence-links`)
     .send({ evidenceId, stepId: 'wide-shot' });
   assert.equal(crossLink.status, 400);
+});
+
+// ── EvidenceRequest resolution (plan.md 2026-08-05) ─────────────────────────
+//
+// The rule: evidence linked at a request's step resolves it — optimistically,
+// because the requester's recourse is to ask again, not to reject. A skip
+// resolves it too: the capturer must never be shown a request they already
+// acted on.
+
+const closeUpRequest = {
+  kind: 'additional' as const,
+  reason: 'possible moisture, need a close-up',
+  stepSpec: {
+    id: 'closeup',
+    title: 'Close-up',
+    guidance: 'Get closer',
+    captureType: 'image' as const,
+    captureSpec: {},
+    feedsAnalyzers: ['general-review'],
+  },
+  requestedBy: { analyzerId: 'human-review' },
+  status: 'pending' as const,
+};
+
+async function driveToAwaitingEvidence(app: import('express').Express): Promise<string> {
+  const assessmentId = await driveToReview(app);
+  await supertest(app)
+    .post(`/reviews/${assessmentId}`)
+    .send({ findings: [], evidenceRequests: [closeUpRequest] });
+  assert.equal(await waitForState(app, assessmentId, 'awaiting_evidence'), 'awaiting_evidence');
+  return assessmentId;
+}
+
+test('answering a request fulfils it and records evidence_request provenance', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToAwaitingEvidence(app);
+
+  const before = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(before.body[0].status, 'pending');
+
+  const answer = await supertest(app)
+    .patch(`/assessments/${assessmentId}/progress`)
+    .send({
+      stepId: 'closeup',
+      status: 'done',
+      evidence: {
+        type: 'image',
+        payloadRef: 'blob://closeup.jpg',
+        metadata: { capturedAt: '2026-01-02T00:00:00Z' },
+      },
+    });
+  assert.equal(answer.status, 200);
+
+  const after = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(after.body[0].status, 'fulfilled');
+
+  const evidence = await supertest(app).get(`/assessments/${assessmentId}/evidence`);
+  const closeUpLink = evidence.body.find((i: { link: { stepId: string } }) => i.link.stepId === 'closeup');
+  assert.equal(closeUpLink.link.origin, 'evidence_request');
+  const wideLink = evidence.body.find((i: { link: { stepId: string } }) => i.link.stepId === 'wide-shot');
+  assert.equal(wideLink.link.origin, 'protocol_step', 'ordinary steps keep protocol_step');
+});
+
+test('skipping a request resolves it as skipped', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToAwaitingEvidence(app);
+
+  const skip = await supertest(app)
+    .patch(`/assessments/${assessmentId}/progress`)
+    .send({ stepId: 'closeup', status: 'skipped' });
+  assert.equal(skip.status, 200);
+
+  const after = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(after.body[0].status, 'skipped');
+});
+
+test('attaching evidence from the subject library answers a request', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToAwaitingEvidence(app);
+
+  // whatever is already in the subject's library is a legitimate answer
+  const assessment = await supertest(app).get(`/assessments/${assessmentId}`);
+  const library = await supertest(app).get(`/subjects/${assessment.body.subjectId}/evidence`);
+  const evidenceId = library.body[0].id;
+
+  const link = await supertest(app)
+    .post(`/assessments/${assessmentId}/evidence-links`)
+    .send({ evidenceId, stepId: 'closeup' });
+  assert.equal(link.status, 201);
+  assert.equal(link.body.origin, 'evidence_request');
+
+  const after = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(after.body[0].status, 'fulfilled');
+});
+
+test('an explicit origin still wins over the inferred one', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToAwaitingEvidence(app);
+  const assessment = await supertest(app).get(`/assessments/${assessmentId}`);
+  const library = await supertest(app).get(`/subjects/${assessment.body.subjectId}/evidence`);
+
+  const link = await supertest(app)
+    .post(`/assessments/${assessmentId}/evidence-links`)
+    .send({ evidenceId: library.body[0].id, stepId: 'closeup', origin: 'library_reuse' });
+  assert.equal(link.body.origin, 'library_reuse');
+
+  const after = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(after.body[0].status, 'fulfilled', 'the request is answered either way');
+});
+
+test('a re-request records the evidence that failed to answer it', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToReview(app);
+
+  const evidence = await supertest(app).get(`/assessments/${assessmentId}/evidence`);
+  const evidenceId = evidence.body[0].evidence.id;
+
+  const res = await supertest(app)
+    .post(`/reviews/${assessmentId}`)
+    .send({
+      findings: [],
+      evidenceRequests: [
+        {
+          ...closeUpRequest,
+          kind: 'retake',
+          reason: 'the wide shot does not show the corner — shoot it again',
+          inadequateEvidenceRefs: [evidenceId],
+        },
+      ],
+    });
+  assert.equal(res.status, 202);
+
+  await waitForState(app, assessmentId, 'awaiting_evidence');
+  const requests = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(requests.body[0].kind, 'retake');
+  assert.deepEqual(requests.body[0].inadequateEvidenceRefs, [evidenceId]);
+});
+
+test('refs pointing outside the assessment are refused with 400', async () => {
+  const { app } = await buildTestApp();
+  const assessmentId = await driveToReview(app);
+
+  const res = await supertest(app)
+    .post(`/reviews/${assessmentId}`)
+    .send({
+      findings: [],
+      evidenceRequests: [
+        { ...closeUpRequest, kind: 'retake', inadequateEvidenceRefs: ['evidence-from-somewhere-else'] },
+      ],
+    });
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /not attached to this assessment/);
+
+  // nothing was persisted, and the assessment is still awaiting its review
+  const requests = await supertest(app).get(`/assessments/${assessmentId}/evidence-requests`);
+  assert.equal(requests.body.length, 0);
 });

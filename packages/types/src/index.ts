@@ -190,6 +190,19 @@ export interface EvidenceRequest {
   stepSpec: ProtocolStep;
   requestedBy: { analyzerId: string };
   status: 'pending' | 'fulfilled' | 'skipped';
+  /**
+   * Evidence that failed to answer this request, set when an analyzer re-asks
+   * (`kind: 'retake'`). Resolution is optimistic — an analyzer who finds an
+   * answer inadequate does not reject it, it asks again — so this is the only
+   * record that a human judged specific evidence insufficient **for this
+   * question**. Never a global verdict on the evidence: the same item can
+   * answer one request well and another badly, which is why the judgment lives
+   * on the request and not on the evidence.
+   *
+   * Hosts that create requests straight through the repository own the check
+   * that these ids belong to the request's assessment; the HTTP API validates.
+   */
+  inadequateEvidenceRefs?: string[];
 }
 
 export interface Condition {
