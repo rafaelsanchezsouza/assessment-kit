@@ -10,5 +10,5 @@
     "lint:layering": "! grep -riEn 'nativa|nbs|paraiba|paraíba' packages/ --include='*.ts' --include='*.tsx' --include='*.json' --include='*.sql' --include='*.md'",
     "verify": "pnpm build && pnpm test && pnpm protocols:validate && pnpm lint:layering"
   },
-  "devDependencies": { "turbo": "^2.0.0", "typescript": "^5.5.0", "@types/node": "^22.0.0" }
+  "devDependencies": { "turbo": "^2.10.8", "typescript": "^7.0.2", "@types/node": "^26.1.2" }
 }
