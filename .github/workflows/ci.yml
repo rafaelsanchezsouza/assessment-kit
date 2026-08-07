@@ -24,7 +24,7 @@ jobs:
       # No `version:` on purpose — package.json's `packageManager` is the single
       # source of truth. action-setup@v4 refuses when both declare a version,
       # which failed CI at its very first step: nothing was ever verified.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
