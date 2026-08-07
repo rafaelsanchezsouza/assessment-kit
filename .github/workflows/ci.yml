@@ -20,7 +20,7 @@ jobs:
     env:
       DATABASE_URL: postgres://akit:akit@localhost:5433/akit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # No `version:` on purpose — package.json's `packageManager` is the single
       # source of truth. action-setup@v4 refuses when both declare a version,
       # which failed CI at its very first step: nothing was ever verified.
