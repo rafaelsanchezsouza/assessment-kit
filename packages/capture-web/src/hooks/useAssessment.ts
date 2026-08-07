@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Assessment, EvidenceRequest, Finding, Protocol, ProtocolStep } from '@gaf/types';
-import type { GafApiClient } from '../api/client.ts';
+import type { Assessment, EvidenceRequest, Finding, Protocol, ProtocolStep } from '@assessment-kit/types';
+import type { AssessmentApiClient } from '../api/client.ts';
 import { randomId } from '../randomId.ts';
 import { UploadQueue } from '../uploadQueue.ts';
 
@@ -54,7 +54,7 @@ export interface ImageCaptureResult {
 }
 
 export interface UseAssessmentOptions {
-  client: GafApiClient;
+  client: AssessmentApiClient;
   protocolId?: string;
   protocolVersion?: string;
   /** Existing subject to assess; otherwise `newSubject` is created on start. */
@@ -89,7 +89,7 @@ export interface UseAssessmentResult {
 }
 
 /**
- * Drives the assessment flow against @gaf/core's HTTP API: create/start →
+ * Drives the assessment flow against @assessment-kit/core's HTTP API: create/start →
  * step-by-step capture (uploads ride the resumable queue) → submit → poll →
  * either `completed` (findings available) or `awaiting_evidence` (analyst's
  * EvidenceRequests appear as additional steps — always skippable) → resubmit.

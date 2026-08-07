@@ -1,6 +1,6 @@
 import { StrictMode, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { en, GafApiClient, GuidedCapture, ptBR } from '@gaf/capture-web';
+import { en, AssessmentApiClient, GuidedCapture, ptBR } from '@assessment-kit/capture-web';
 
 // Dev-only host proving the SDK end-to-end against apps/reference (via the
 // vite /api proxy) using the NEUTRAL demo protocol — deliberately no domain
@@ -11,13 +11,13 @@ const PROTOCOL_VERSION = '0.1.0';
 function App() {
   const [lang, setLang] = useState<'en' | 'pt-BR'>('en');
   const [run, setRun] = useState(0);
-  const client = useMemo(() => new GafApiClient({ baseUrl: '/api' }), []);
+  const client = useMemo(() => new AssessmentApiClient({ baseUrl: '/api' }), []);
   const newSubject = useMemo(() => ({ type: 'backyard', ownerId: 'demo-user' }), []);
 
   return (
     <div>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '1.2rem' }}>GAF capture demo</h1>
+        <h1 style={{ fontSize: '1.2rem' }}>assessment-kit capture demo</h1>
         <span>
           <button type="button" onClick={() => setLang(lang === 'en' ? 'pt-BR' : 'en')}>
             {lang === 'en' ? 'PT-BR' : 'EN'}

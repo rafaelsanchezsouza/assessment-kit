@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { HumanAnalyzer } from '@gaf/analyzer-human';
-import type { Protocol } from '@gaf/types';
+import { HumanAnalyzer } from '@assessment-kit/analyzer-human';
+import type { Protocol } from '@assessment-kit/types';
 import supertest from 'supertest';
 import { Orchestrator } from '../orchestrator.ts';
 import {

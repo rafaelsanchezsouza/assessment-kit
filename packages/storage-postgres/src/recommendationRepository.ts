@@ -1,4 +1,4 @@
-import type { Recommendation, RecommendationRepository, RecommendationStatus } from '@gaf/types';
+import type { Recommendation, RecommendationRepository, RecommendationStatus } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresRecommendationRepository implements RecommendationRepository {

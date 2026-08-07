@@ -1,4 +1,4 @@
-import type { AssessmentState } from '@gaf/types';
+import type { AssessmentState } from '@assessment-kit/types';
 
 /** Legal transitions of the Assessment state machine (docs/domain-model.md §4). */
 export const TRANSITIONS: Record<AssessmentState, AssessmentState[]> = {

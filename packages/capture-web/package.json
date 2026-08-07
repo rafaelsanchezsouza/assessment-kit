@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/capture-web",
+  "name": "@assessment-kit/capture-web",
   "version": "0.1.0",
   "description": "Guided capture SDK (React): protocol-driven HUD, client-side quality checks, resumable upload queue",
   "type": "module",
@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test" },
   "license": "Apache-2.0",
-  "dependencies": { "@gaf/types": "workspace:*" },
+  "dependencies": { "@assessment-kit/types": "workspace:*" },
   "peerDependencies": { "react": "^18.0.0 || ^19.0.0" },
   "devDependencies": {
     "@types/react": "^18.3.0",

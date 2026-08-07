@@ -1,7 +1,7 @@
 -- EvidenceRequest resolution (see plan.md, "EvidenceRequest resolution + the
 -- re-request signal"). Two independent things, one migration:
 --
--- 1. A one-off backfill. Until @gaf/core learned to call
+-- 1. A one-off backfill. Until @assessment-kit/core learned to call
 --    EvidenceRequestRepository.updateStatus, every request stayed 'pending'
 --    forever — including ones answered long ago, which keep showing up as
 --    outstanding asks to the capturer. Conservative on purpose: only requests

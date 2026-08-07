@@ -1,4 +1,4 @@
-import type { OutcomeRecord, OutcomeRecordRepository } from '@gaf/types';
+import type { OutcomeRecord, OutcomeRecordRepository } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresOutcomeRecordRepository implements OutcomeRecordRepository {

@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/analyzer",
+  "name": "@assessment-kit/analyzer",
   "version": "0.1.0",
   "description": "Abstract analyzer plugin interface + registry (ports)",
   "type": "module",
@@ -7,5 +7,5 @@
   "types": "dist/index.d.ts",
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test" },
   "license": "Apache-2.0",
-  "dependencies": { "@gaf/types": "workspace:*" }
+  "dependencies": { "@assessment-kit/types": "workspace:*" }
 }

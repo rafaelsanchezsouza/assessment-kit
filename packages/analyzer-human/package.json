@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/analyzer-human",
+  "name": "@assessment-kit/analyzer-human",
   "version": "0.1.0",
   "description": "Human-expert analyzer adapter: review queue in, findings/requests out",
   "type": "module",
@@ -7,5 +7,5 @@
   "types": "dist/index.d.ts",
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test" },
   "license": "Apache-2.0",
-  "dependencies": { "@gaf/types": "workspace:*" }
+  "dependencies": { "@assessment-kit/types": "workspace:*" }
 }

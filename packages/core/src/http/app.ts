@@ -11,7 +11,7 @@ import type {
   FindingRepository,
   ProtocolRepository,
   SubjectRepository,
-} from '@gaf/types';
+} from '@assessment-kit/types';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { canTransition } from '../stateMachine.ts';
 import { Orchestrator } from '../orchestrator.ts';
@@ -20,8 +20,8 @@ import { findPendingRequestsForStep, resolveRequestsForStep } from '../evidenceR
 /**
  * The `/reviews` endpoint needs to resolve a pending human-analyzer promise,
  * but that's HumanAnalyzer-specific behavior, not part of the generic
- * Analyzer contract in @gaf/types. Declaring the shape here (rather than
- * importing @gaf/analyzer-human) keeps @gaf/core analyzer-agnostic — the
+ * Analyzer contract in @assessment-kit/types. Declaring the shape here (rather than
+ * importing @assessment-kit/analyzer-human) keeps @assessment-kit/core analyzer-agnostic — the
  * composition root (apps/reference) passes a concrete instance that
  * structurally satisfies it.
  */

@@ -1,4 +1,4 @@
-import type { EvidenceRequest, EvidenceRequestRepository } from '@gaf/types';
+import type { EvidenceRequest, EvidenceRequestRepository } from '@assessment-kit/types';
 
 /**
  * Resolution of EvidenceRequests, as one rule in one place.
@@ -10,7 +10,7 @@ import type { EvidenceRequest, EvidenceRequestRepository } from '@gaf/types';
  * of the answer's quality, which is why `skipped` is a resolution too: the
  * capturer must never be shown a request they have already acted on.
  *
- * This lives in @gaf/core, not in a storage adapter, because a skip writes no
+ * This lives in @assessment-kit/core, not in a storage adapter, because a skip writes no
  * evidence and no link at all — an adapter-level hook would see at most half the
  * rule. Exported from the package root so a host that writes evidence without
  * going through this package's HTTP API can apply the same rule.

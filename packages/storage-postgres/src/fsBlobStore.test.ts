@@ -9,7 +9,7 @@ let baseDir: string;
 let store: FsBlobStore;
 
 before(async () => {
-  baseDir = await mkdtemp(join(tmpdir(), 'gaf-blobstore-'));
+  baseDir = await mkdtemp(join(tmpdir(), 'ak-blobstore-'));
   store = new FsBlobStore(baseDir);
 });
 

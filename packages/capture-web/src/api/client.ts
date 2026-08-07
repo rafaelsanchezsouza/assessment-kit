@@ -7,9 +7,9 @@ import type {
   Finding,
   Protocol,
   Subject,
-} from '@gaf/types';
+} from '@assessment-kit/types';
 
-/** Non-2xx response from the GAF HTTP API. `status` distinguishes permanent
+/** Non-2xx response from the assessment-kit HTTP API. `status` distinguishes permanent
  * client errors (4xx — don't retry) from transient server errors (5xx). */
 export class ApiError extends Error {
   readonly status: number;
@@ -23,7 +23,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface GafApiClientOptions {
+export interface AssessmentApiClientOptions {
   baseUrl: string;
   /** Injectable for tests and non-browser hosts; defaults to globalThis.fetch. */
   fetchImpl?: typeof fetch;
@@ -49,14 +49,14 @@ export interface ReviewSubmission {
 }
 
 /**
- * Thin typed client for @gaf/core's HTTP API. Deliberately dumb: no caching,
+ * Thin typed client for @assessment-kit/core's HTTP API. Deliberately dumb: no caching,
  * no retries (the upload queue owns retry policy), no domain assumptions.
  */
-export class GafApiClient {
+export class AssessmentApiClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(options: GafApiClientOptions) {
+  constructor(options: AssessmentApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }

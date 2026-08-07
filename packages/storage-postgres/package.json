@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/storage-postgres",
+  "name": "@assessment-kit/storage-postgres",
   "version": "0.1.0",
   "description": "Reference storage adapter: Postgres repositories (ports & adapters, ADR-002) + local filesystem BlobStore",
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@gaf/types": "workspace:*",
+    "@assessment-kit/types": "workspace:*",
     "pg": "^8.13.1"
   },
   "devDependencies": {

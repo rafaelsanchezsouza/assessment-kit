@@ -71,14 +71,14 @@ have already acted on.
 ## Why the rule cannot live in the storage adapter
 
 Considered and rejected — *not* on ADR grounds (the rule carries no domain
-vocabulary and would pass the layering lint; `@gaf/core` is full of framework
+vocabulary and would pass the layering lint; `@assessment-kit/core` is full of framework
 business rules and that is where they belong):
 
 - **A skip writes nothing.** `skipStep` sends `PATCH /progress` with
   `status: 'skipped'` and no payload, so no link is created. A hook inside
   `linkToAssessment` cannot see half the rule.
 - **A port has many implementations.** Postgres plus the in-memory fakes the
-  whole `@gaf/core` suite runs against; the rule would be written twice and
+  whole `@assessment-kit/core` suite runs against; the rule would be written twice and
   drift, and every future adapter would inherit the obligation.
 - **Bulk relinking.** Hosts that merge one assessment's links into another would
   resolve requests as an invisible side effect.
@@ -254,14 +254,14 @@ re-request is a training example that cannot be reconstructed.
 # Review loop (Wizard-of-Oz UI) — DONE 2026-07-09
 
 > Delivered right after capture-web, with a scope decision by the user: **the
-> review UI lives in the domain repo** (`../nativa-domain/app`) as the first
+> review UI lives in the domain repo** (`../nativa/app`) as the first
 > real Nativa app — two views, comerciante (capture) and fornecedor (review) —
 > instead of a framework-side generic review app. The framework contributed
 > only generic surfaces, keeping layers decoupled:
 >
 > - `AssessmentRepository.findByState` + `GET /assessments?state=review`
 >   (work-queue listing), `GET /assessments/:id/evidence` (evidence + link
->   metadata), `GafApiClient.listAssessments/getAssessmentEvidence/submitReview`.
+>   metadata), `AssessmentApiClient.listAssessments/getAssessmentEvidence/submitReview`.
 > - `apps/reference` accepts `PROTOCOLS_DIR` (colon-separated) so any vertical
 >   serves its own protocol YAML through the same composition root — no fork.
 > - Domain repo: first real protocol (`vistoria-imovel-comercial`, PT-BR,
@@ -278,7 +278,7 @@ re-request is a training example that cannot be reconstructed.
 
 ---
 
-# @gaf/capture-web — the React capture SDK
+# @assessment-kit/capture-web — the React capture SDK
 
 > **STATUS: DONE (2026-07-09).** Everything below is implemented and verified:
 > backend gaps (§1), the SDK (§2), `apps/capture-demo` (§3), git init + private
@@ -291,10 +291,10 @@ re-request is a training example that cannot be reconstructed.
 
 ## Context
 
-Build-order item 3 and CLAUDE.md's "immediate next task": `@gaf/capture-web`
+Build-order item 3 and CLAUDE.md's "immediate next task": `@assessment-kit/capture-web`
 is the last empty-stub layer between "backend works" and a clickable POC. The
-backend it talks to is real: `apps/reference` wires `@gaf/core`'s HTTP API +
-`@gaf/storage-postgres` + `HumanAnalyzer` on port 3002, end-to-end tested
+backend it talks to is real: `apps/reference` wires `@assessment-kit/core`'s HTTP API +
+`@assessment-kit/storage-postgres` + `HumanAnalyzer` on port 3002, end-to-end tested
 against Postgres. The UX to port is proven in `apps/prototype/nbs-v2.html`
 (guided HUD, composed shooting script, Laplacian blur check) — but the
 prototype is throwaway AND domain-flavored; this package is the product-grade,
@@ -323,8 +323,8 @@ Concretely for everything in this plan:
   author's job — protocol-level i18n is a schema gap, parked in the backlog
   below, and must not be papered over with strings inside the SDK.
 - **Dependency direction:** `apps → packages`, never the reverse.
-  `@gaf/capture-web` depends only on `@gaf/types` (plus React as a peer).
-  It must not import `@gaf/core` (it talks to it over HTTP) and must not know
+  `@assessment-kit/capture-web` depends only on `@assessment-kit/types` (plus React as a peer).
+  It must not import `@assessment-kit/core` (it talks to it over HTTP) and must not know
   which storage or analyzer sits behind the API.
 - **Composition roots are the only place layers meet.** The demo host app in
   this repo composes SDK + the neutral demo protocol. The Nativa capture app
@@ -337,7 +337,7 @@ Concretely for everything in this plan:
   `catalog/` and `apps/prototype/` is exempt; they're the illustrative
   knowledge layer and the UX lab).
 
-## 1. Backend gaps capture-web exposes (fix in @gaf/core first, small)
+## 1. Backend gaps capture-web exposes (fix in @assessment-kit/core first, small)
 
 The API was curl-tested with metadata-only evidence; a real photo frontend
 needs two additions (both domain-neutral by construction):
@@ -380,7 +380,7 @@ for tests. Everything below is protocol-driven; nothing is domain-specific.
 - `src/components/StructuredInputStep.tsx` — minimal renderer for
   `captureType: structured_input` driven by `captureSpec.jsonSchema` (enum →
   select, boolean → toggle, string/number → input). Schema-driven only;
-  `@gaf/forms-web` remains the future home for full form rendering.
+  `@assessment-kit/forms-web` remains the future home for full form rendering.
 - `src/hooks/useAssessment.ts` — state hook driving the flow: load protocol →
   start → step-by-step capture → submit → poll `evidence-requests`
   (refinement loop: requested retakes/additions rendered as extra steps,
@@ -412,7 +412,7 @@ that's a layering bug to fix in the framework, not a patch to inline.
 but has never executed — "wired into CI" is aspirational until `git init`,
 first commit, and a GitHub remote exist. Do this before/alongside the
 capture-web work so the Postgres-service CI (plus the new layering lint from
-§0) actually guards changes. (Also the moment for the GAF→real-name rename
+§0) actually guards changes. (Also the moment for the assessment-kit→real-name rename
 check-in, decision 14, before anything is published.)
 
 ## Verification
@@ -435,7 +435,7 @@ check-in, decision 14, before anything is published.)
 ## Status of the previous plan (storage) — DONE, verified 2026-07-09
 
 Everything in the previous plan.md exists and passes: storage ports in
-`@gaf/types`, `packages/storage-postgres` (10 repositories + FsBlobStore with
+`@assessment-kit/types`, `packages/storage-postgres` (10 repositories + FsBlobStore with
 path-traversal guard + plain-SQL migrate + docker-compose), tests that skip
 cleanly without a DB (`pnpm test` → 17 tasks green, 6 pg tests skipped when
 no `DATABASE_URL`), CI file with Postgres service container, and beyond the

@@ -1,4 +1,4 @@
-import type { Protocol, ProtocolRepository } from '@gaf/types';
+import type { Protocol, ProtocolRepository } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresProtocolRepository implements ProtocolRepository {

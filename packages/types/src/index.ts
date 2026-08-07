@@ -1,5 +1,5 @@
 /**
- * @gaf/types — shared contracts for the Guided Assessment Framework.
+ * @assessment-kit/types — shared contracts for the Guided Assessment Framework.
  * This file is the TypeScript translation of docs/domain-model.md.
  * Every other package depends on this one; it has zero dependencies itself.
  */

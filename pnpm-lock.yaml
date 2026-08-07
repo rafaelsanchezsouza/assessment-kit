@@ -20,10 +20,10 @@ importers:
 
   apps/capture-demo:
     dependencies:
-      '@gaf/capture-web':
+      '@assessment-kit/capture-web':
         specifier: workspace:*
         version: link:../../packages/capture-web
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../../packages/types
       react:
@@ -51,25 +51,25 @@ importers:
 
   apps/reference:
     dependencies:
-      '@gaf/analyzer-human':
+      '@assessment-kit/analyzer-human':
         specifier: workspace:*
         version: link:../../packages/analyzer-human
-      '@gaf/capture-web':
+      '@assessment-kit/capture-web':
         specifier: workspace:*
         version: link:../../packages/capture-web
-      '@gaf/core':
+      '@assessment-kit/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@gaf/forms-web':
+      '@assessment-kit/forms-web':
         specifier: workspace:*
         version: link:../../packages/forms-web
-      '@gaf/protocol-tools':
+      '@assessment-kit/protocol-tools':
         specifier: workspace:*
         version: link:../../packages/protocol-tools
-      '@gaf/storage-postgres':
+      '@assessment-kit/storage-postgres':
         specifier: workspace:*
         version: link:../../packages/storage-postgres
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../../packages/types
       js-yaml:
@@ -82,19 +82,19 @@ importers:
 
   packages/analyzer:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
 
   packages/analyzer-human:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
 
   packages/capture-web:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
@@ -107,14 +107,14 @@ importers:
 
   packages/core:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
       express:
         specifier: ^4.21.1
         version: 4.22.2
     devDependencies:
-      '@gaf/analyzer-human':
+      '@assessment-kit/analyzer-human':
         specifier: workspace:*
         version: link:../analyzer-human
       '@types/express':
@@ -129,13 +129,13 @@ importers:
 
   packages/forms-web:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
 
   packages/protocol-tools:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
       ajv:
@@ -151,7 +151,7 @@ importers:
 
   packages/storage-postgres:
     dependencies:
-      '@gaf/types':
+      '@assessment-kit/types':
         specifier: workspace:*
         version: link:../types
       pg:

@@ -13,9 +13,9 @@ import type {
   ProtocolRepository,
   Subject,
   SubjectRepository,
-} from '@gaf/types';
+} from '@assessment-kit/types';
 
-/** Map-backed fakes of the @gaf/types storage ports — for tests only, no real persistence. */
+/** Map-backed fakes of the @assessment-kit/types storage ports — for tests only, no real persistence. */
 
 export class InMemorySubjectRepository implements SubjectRepository {
   private readonly rows = new Map<string, Subject>();

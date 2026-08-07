@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ApiError, GafApiClient } from './client.ts';
+import { ApiError, AssessmentApiClient } from './client.ts';
 
 function fetchReturning(status: number, body: unknown, capture?: (url: string, init?: RequestInit) => void) {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -11,7 +11,7 @@ function fetchReturning(status: number, body: unknown, capture?: (url: string, i
 
 test('json helpers hit the right URL with the right method/body', async () => {
   let seen: { url: string; init?: RequestInit } | null = null;
-  const client = new GafApiClient({
+  const client = new AssessmentApiClient({
     baseUrl: 'http://api.example/', // trailing slash must not double up
     fetchImpl: fetchReturning(200, { id: 'p1' }, (url, init) => (seen = { url, init })),
   });
@@ -25,7 +25,7 @@ test('json helpers hit the right URL with the right method/body', async () => {
 });
 
 test('non-2xx throws ApiError with status and server message', async () => {
-  const client = new GafApiClient({
+  const client = new AssessmentApiClient({
     baseUrl: 'http://x',
     fetchImpl: fetchReturning(404, { error: 'no assessment a9' }),
   });
@@ -41,7 +41,7 @@ test('non-2xx throws ApiError with status and server message', async () => {
 });
 
 test('blobUrl accepts both raw keys and blob:// payloadRefs', () => {
-  const client = new GafApiClient({ baseUrl: 'http://x', fetchImpl: fetchReturning(200, {}) });
+  const client = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: fetchReturning(200, {}) });
   assert.equal(client.blobUrl('evidence/a1/k1'), 'http://x/blobs/evidence/a1/k1');
   assert.equal(client.blobUrl('blob://evidence/a1/k1'), 'http://x/blobs/evidence/a1/k1');
 });

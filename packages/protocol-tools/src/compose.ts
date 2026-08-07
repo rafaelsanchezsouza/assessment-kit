@@ -1,4 +1,4 @@
-import type { Protocol, ProtocolStep } from '@gaf/types';
+import type { Protocol, ProtocolStep } from '@assessment-kit/types';
 
 /**
  * Solution-first composition (strategic decision 7): a catalog's step library

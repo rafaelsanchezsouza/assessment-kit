@@ -1,5 +1,5 @@
 # Catálogo de Soluções Baseadas na Natureza — Paraíba (demo)
-# Structure mirrors Solution in @gaf/types + evidenceRequirements (solution-first assessment).
+# Structure mirrors Solution in @assessment-kit/types + evidenceRequirements (solution-first assessment).
 # In production this file lives in the PRIVATE vertical repo; it ships here as demo content.
 # Evidence one-liners paraphrase Brazilian technical literature. This catalog is DEMO
 # content; the production catalog and its full sourced evidence base live in the PRIVATE

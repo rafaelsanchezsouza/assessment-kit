@@ -7,18 +7,18 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: gaf
-          POSTGRES_PASSWORD: gaf
-          POSTGRES_DB: gaf
+          POSTGRES_USER: akit
+          POSTGRES_PASSWORD: akit
+          POSTGRES_DB: akit
         ports:
           - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U gaf"
+          --health-cmd "pg_isready -U akit"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://gaf:gaf@localhost:5433/gaf
+      DATABASE_URL: postgres://akit:akit@localhost:5433/akit
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -27,7 +27,7 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter @gaf/storage-postgres migrate
+      - run: pnpm --filter @assessment-kit/storage-postgres migrate
       - run: pnpm test
       - run: pnpm protocols:validate   # demo protocols must pass the schema
       # Layering lint (ADR-006): framework packages must stay domain-agnostic.

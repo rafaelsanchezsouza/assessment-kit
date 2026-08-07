@@ -2,7 +2,7 @@ version: 2
 updates:
   # npm/pnpm dependency updates across the monorepo. Grouped so security-relevant
   # bumps land as reviewable PRs once the repo is pushed to GitHub (a founder
-  # pendency — see nativa-domain/docs/proximos-passos.md).
+  # pendency — see nativa/docs/proximos-passos.md).
   - package-ecosystem: npm
     directory: /
     schedule:

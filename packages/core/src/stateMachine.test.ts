@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { AssessmentState } from '@gaf/types';
+import type { AssessmentState } from '@assessment-kit/types';
 import { canTransition } from './stateMachine.ts';
 
 // Legal edges per docs/domain-model.md §4.

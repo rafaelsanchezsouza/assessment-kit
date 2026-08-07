@@ -48,7 +48,7 @@ group together. Same philosophy as `CodedStatement.code`: a machine key chosen
 in the vertical, alongside the human text.
 
 ```ts
-// @gaf/types — additive, backward compatible
+// @assessment-kit/types — additive, backward compatible
 export interface GuidanceGapSignal {
   /** Stable slug so repeated asks about the same gap roll up. Vertical-owned
    *  vocabulary (like CodedStatement.code). e.g. "water-meter-photo". */
@@ -110,7 +110,7 @@ export interface GuidanceGapDisposition {
 ## Storage port + reference adapter
 
 ```ts
-// @gaf/types — new port
+// @assessment-kit/types — new port
 export interface GuidanceGapRepository {
   /** GROUP BY over evidence_requests⋈assessments; ranked by support desc. */
   aggregate(protocolId: string, opts?: { minSupport?: number; status?: GuidanceGapStatus }): Promise<GuidanceGap[]>;
@@ -119,7 +119,7 @@ export interface GuidanceGapRepository {
 }
 ```
 
-Postgres (`@gaf/storage-postgres`):
+Postgres (`@assessment-kit/storage-postgres`):
 - **Migration `004_evidence_request_gap.sql`** — add nullable columns to
   `evidence_requests`: `gap_topic text`, `gap_anchor_step_id text`,
   `gap_suggested_capture_type text`; partial index
@@ -150,7 +150,7 @@ existing Express app:
 When a disposition is set to **`actioned`**, the service emits:
 
 ```ts
-// @gaf/types — event boundary, framework STOPS here (cf. FulfillmentRequestedEvent)
+// @assessment-kit/types — event boundary, framework STOPS here (cf. FulfillmentRequestedEvent)
 export interface GuidanceGapActionedEvent {
   type: 'guidance.gap.actioned';
   protocolId: string;

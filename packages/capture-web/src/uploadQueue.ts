@@ -1,5 +1,5 @@
-import type { Evidence } from '@gaf/types';
-import { ApiError, type GafApiClient } from './api/client.ts';
+import type { Evidence } from '@assessment-kit/types';
+import { ApiError, type AssessmentApiClient } from './api/client.ts';
 
 /**
  * Resumable evidence upload queue. The server is the source of truth for
@@ -31,7 +31,7 @@ export interface UploadTask {
 }
 
 export interface UploadQueueOptions {
-  client: GafApiClient;
+  client: AssessmentApiClient;
   storage?: QueueStorage;
   storageKey?: string;
   maxAttempts?: number;
@@ -52,7 +52,7 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 export class UploadQueue {
-  private readonly client: GafApiClient;
+  private readonly client: AssessmentApiClient;
   private readonly storage: QueueStorage | null;
   private readonly storageKey: string;
   private readonly maxAttempts: number;
@@ -66,7 +66,7 @@ export class UploadQueue {
   constructor(options: UploadQueueOptions) {
     this.client = options.client;
     this.storage = options.storage ?? (typeof localStorage === 'undefined' ? null : localStorage);
-    this.storageKey = options.storageKey ?? 'gaf-upload-queue';
+    this.storageKey = options.storageKey ?? 'ak-upload-queue';
     this.maxAttempts = options.maxAttempts ?? 5;
     this.retryDelaysMs = options.retryDelaysMs ?? [500, 1000, 2000, 5000, 10000];
     this.onTaskDone = options.onTaskDone;

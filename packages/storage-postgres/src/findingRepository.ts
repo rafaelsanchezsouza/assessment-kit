@@ -1,4 +1,4 @@
-import type { Finding, FindingRepository } from '@gaf/types';
+import type { Finding, FindingRepository } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresFindingRepository implements FindingRepository {

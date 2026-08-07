@@ -3,7 +3,7 @@ import type {
   Evidence,
   EvidenceOrigin,
   EvidenceRepository,
-} from '@gaf/types';
+} from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresEvidenceRepository implements EvidenceRepository {

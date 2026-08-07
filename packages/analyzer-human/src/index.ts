@@ -1,4 +1,4 @@
-import type { Analyzer, AnalyzerInput, AnalyzerOutput, AnalyzerRegistration } from '@gaf/types';
+import type { Analyzer, AnalyzerInput, AnalyzerOutput, AnalyzerRegistration } from '@assessment-kit/types';
 
 /**
  * Human-expert analyzer: enqueues a review task and resolves when the expert

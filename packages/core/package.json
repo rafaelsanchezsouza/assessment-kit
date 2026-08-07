@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/core",
+  "name": "@assessment-kit/core",
   "version": "0.1.0",
   "description": "Protocol interpreter, assessment state machine, analyzer orchestrator",
   "type": "module",
@@ -7,9 +7,9 @@
   "types": "dist/index.d.ts",
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test" },
   "license": "Apache-2.0",
-  "dependencies": { "@gaf/types": "workspace:*", "express": "^4.21.1" },
+  "dependencies": { "@assessment-kit/types": "workspace:*", "express": "^4.21.1" },
   "devDependencies": {
-    "@gaf/analyzer-human": "workspace:*",
+    "@assessment-kit/analyzer-human": "workspace:*",
     "@types/express": "^4.17.21",
     "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0"

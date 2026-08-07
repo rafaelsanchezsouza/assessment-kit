@@ -9,7 +9,7 @@ import type {
   EvidenceRequestRepository,
   FindingRepository,
   Protocol,
-} from '@gaf/types';
+} from '@assessment-kit/types';
 import { canTransition } from './stateMachine.ts';
 
 export interface OrchestratorDeps {

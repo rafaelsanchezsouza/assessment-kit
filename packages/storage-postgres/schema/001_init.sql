@@ -1,4 +1,4 @@
--- Reference Postgres schema for the core GAF entities (docs/domain-model.md §2).
+-- Reference Postgres schema for the core assessment-kit entities (docs/domain-model.md §2).
 -- Structured fields are real columns; free-form/flexible parts are JSONB;
 -- id-reference lists are text[].
 

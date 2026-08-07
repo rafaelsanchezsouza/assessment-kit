@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gaf.dev/schemas/protocol.schema.json",
+  "$id": "https://rafaelsanchezsouza.github.io/assessment-kit/schemas/protocol.schema.json",
   "title": "Assessment Protocol",
   "type": "object",
   "required": ["id", "version", "subjectType", "steps", "refinementPolicy"],

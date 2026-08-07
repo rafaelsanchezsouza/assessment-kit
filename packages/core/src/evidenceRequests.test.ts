@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { EvidenceRequest } from '@gaf/types';
+import type { EvidenceRequest } from '@assessment-kit/types';
 import { findPendingRequestsForStep, resolveRequestsForStep } from './evidenceRequests.ts';
 import { InMemoryEvidenceRequestRepository } from './testSupport/inMemoryRepos.ts';
 

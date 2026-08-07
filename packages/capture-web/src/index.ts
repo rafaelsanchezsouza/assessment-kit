@@ -1,11 +1,11 @@
-// @gaf/capture-web — guided capture SDK (React). Protocol-driven HUD +
-// client-side quality checks + resumable upload queue against @gaf/core's
+// @assessment-kit/capture-web — guided capture SDK (React). Protocol-driven HUD +
+// client-side quality checks + resumable upload queue against @assessment-kit/core's
 // HTTP API. Domain-agnostic by construction: all content arrives as data.
-export { ApiError, GafApiClient } from './api/client.ts';
+export { ApiError, AssessmentApiClient } from './api/client.ts';
 export type {
   AssessmentEvidenceItem,
   BlobUploadResult,
-  GafApiClientOptions,
+  AssessmentApiClientOptions,
   ProgressEvidence,
   ReviewSubmission,
 } from './api/client.ts';

@@ -1,4 +1,4 @@
-import type { Condition, ConditionRepository } from '@gaf/types';
+import type { Condition, ConditionRepository } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresConditionRepository implements ConditionRepository {

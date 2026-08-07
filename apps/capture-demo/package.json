@@ -1,8 +1,8 @@
 {
-  "name": "@gaf/capture-demo",
+  "name": "@assessment-kit/capture-demo",
   "private": true,
   "version": "0.1.0",
-  "description": "Dev-only Vite host proving @gaf/capture-web against apps/reference — neutral demo protocol, no domain content",
+  "description": "Dev-only Vite host proving @assessment-kit/capture-web against apps/reference — neutral demo protocol, no domain content",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@gaf/capture-web": "workspace:*",
-    "@gaf/types": "workspace:*",
+    "@assessment-kit/capture-web": "workspace:*",
+    "@assessment-kit/types": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

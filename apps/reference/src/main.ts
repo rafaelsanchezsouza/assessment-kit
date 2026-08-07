@@ -1,6 +1,6 @@
 // Clone-and-run composition root: loads protocols, wires the Postgres storage
-// adapter + HumanAnalyzer + Orchestrator into @gaf/core's HTTP API, and
-// starts listening. Run `pnpm --filter @gaf/storage-postgres migrate`
+// adapter + HumanAnalyzer + Orchestrator into @assessment-kit/core's HTTP API, and
+// starts listening. Run `pnpm --filter @assessment-kit/storage-postgres migrate`
 // against a running Postgres (see its docker-compose.yml) before starting.
 //
 // PROTOCOLS_DIR (colon-separated list of directories) points at the protocol
@@ -9,11 +9,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HumanAnalyzer } from '@gaf/analyzer-human';
-import { createApp, Orchestrator } from '@gaf/core';
-import { validateProtocol } from '@gaf/protocol-tools';
-import { createPostgresStorage, FsBlobStore, getPool } from '@gaf/storage-postgres';
-import type { Protocol } from '@gaf/types';
+import { HumanAnalyzer } from '@assessment-kit/analyzer-human';
+import { createApp, Orchestrator } from '@assessment-kit/core';
+import { validateProtocol } from '@assessment-kit/protocol-tools';
+import { createPostgresStorage, FsBlobStore, getPool } from '@assessment-kit/storage-postgres';
+import type { Protocol } from '@assessment-kit/types';
 import { load as parseYaml } from 'js-yaml';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   // lives elsewhere.
   const host = process.env.HOST ?? '127.0.0.1';
   app.listen(port, host, () => {
-    console.log(`@gaf/reference-app listening on http://${host}:${port}`);
+    console.log(`@assessment-kit/reference-app listening on http://${host}:${port}`);
     for (const p of protocols) console.log(`protocol loaded: ${p.id}@${p.version}`);
   });
 }

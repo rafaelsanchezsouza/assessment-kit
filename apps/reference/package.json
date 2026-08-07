@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/reference-app",
+  "name": "@assessment-kit/reference-app",
   "private": true,
   "version": "0.1.0",
   "description": "Clone-and-run demo: demo protocol + human analyzer + no-op fulfillment",
@@ -9,13 +9,13 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@gaf/types": "workspace:*",
-    "@gaf/core": "workspace:*",
-    "@gaf/capture-web": "workspace:*",
-    "@gaf/forms-web": "workspace:*",
-    "@gaf/analyzer-human": "workspace:*",
-    "@gaf/storage-postgres": "workspace:*",
-    "@gaf/protocol-tools": "workspace:*",
+    "@assessment-kit/types": "workspace:*",
+    "@assessment-kit/core": "workspace:*",
+    "@assessment-kit/capture-web": "workspace:*",
+    "@assessment-kit/forms-web": "workspace:*",
+    "@assessment-kit/analyzer-human": "workspace:*",
+    "@assessment-kit/storage-postgres": "workspace:*",
+    "@assessment-kit/protocol-tools": "workspace:*",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

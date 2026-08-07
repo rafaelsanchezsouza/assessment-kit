@@ -1,4 +1,4 @@
-import type { Subject, SubjectRepository } from '@gaf/types';
+import type { Subject, SubjectRepository } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresSubjectRepository implements SubjectRepository {

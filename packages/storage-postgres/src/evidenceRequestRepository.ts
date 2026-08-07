@@ -1,4 +1,4 @@
-import type { EvidenceRequest, EvidenceRequestRepository } from '@gaf/types';
+import type { EvidenceRequest, EvidenceRequestRepository } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresEvidenceRequestRepository implements EvidenceRequestRepository {

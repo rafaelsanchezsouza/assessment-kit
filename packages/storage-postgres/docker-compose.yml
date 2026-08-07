@@ -1,4 +1,4 @@
-# Local dev/test Postgres for @gaf/storage-postgres only.
+# Local dev/test Postgres for @assessment-kit/storage-postgres only.
 # Isolated from the shared VM's evolution-api Postgres (see ../../../DEPLOY-PLAYBOOK.md §2).
 services:
   db:
@@ -6,10 +6,10 @@ services:
     ports:
       - "5433:5432" # host 5433, per DEPLOY-PLAYBOOK's "Postgres próprio 5433+" convention
     environment:
-      POSTGRES_USER: gaf
-      POSTGRES_PASSWORD: gaf
-      POSTGRES_DB: gaf
+      POSTGRES_USER: akit
+      POSTGRES_PASSWORD: akit
+      POSTGRES_DB: akit
     volumes:
-      - gaf_storage_postgres_data:/var/lib/postgresql/data
+      - akit_storage_postgres_data:/var/lib/postgresql/data
 volumes:
-  gaf_storage_postgres_data:
+  akit_storage_postgres_data:

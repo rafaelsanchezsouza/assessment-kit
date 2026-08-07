@@ -1,5 +1,5 @@
 {
-  "name": "@gaf/types",
+  "name": "@assessment-kit/types",
   "version": "0.1.0",
   "description": "Shared domain contracts (zero-dependency)",
   "type": "module",

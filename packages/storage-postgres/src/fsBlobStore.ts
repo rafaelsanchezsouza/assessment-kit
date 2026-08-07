@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
-import type { BlobStore } from '@gaf/types';
+import type { BlobStore } from '@assessment-kit/types';
 
 /**
  * Local filesystem reference BlobStore (ADR-002). Keys are caller-supplied

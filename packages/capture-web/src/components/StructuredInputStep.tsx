@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import type { ProtocolStep } from '@gaf/types';
+import type { ProtocolStep } from '@assessment-kit/types';
 import type { CaptureStrings } from '../i18n.ts';
 import { missingRequiredKeys, type JsonSchemaObject, type JsonSchemaProperty } from './structuredAnswers.ts';
 
@@ -8,7 +8,7 @@ import { missingRequiredKeys, type JsonSchemaObject, type JsonSchemaProperty } f
  * `captureSpec.jsonSchema` (object schema, flat properties): enum → select,
  * boolean → explicit yes/no pair, number/integer → number input, string → text
  * input. Just enough for capture flows — full form rendering belongs to
- * @gaf/forms-web.
+ * @assessment-kit/forms-web.
  *
  * Booleans are deliberately NOT a lone checkbox: an unchecked box is
  * indistinguishable from an unanswered question, which silently satisfies
@@ -36,7 +36,7 @@ export function StructuredInputStep({ step, strings, onSubmit, onSkip, className
   const missingRequired = missingRequiredKeys(schema, answers).length > 0;
 
   return (
-    <div className={className ?? 'gaf-structured-step'}>
+    <div className={className ?? 'ak-structured-step'}>
       {Object.entries(properties).map(([key, prop]) => {
         const label = `${prop.title ?? key}${required.has(key) ? ' *' : ''}`;
         const description = prop.description ? <small style={{ display: 'block' }}>{prop.description}</small> : null;
@@ -47,10 +47,10 @@ export function StructuredInputStep({ step, strings, onSubmit, onSkip, className
           return (
             <fieldset
               key={key}
-              className="gaf-field gaf-field-boolean"
+              className="ak-field ak-field-boolean"
               style={{ display: 'block', marginBottom: '0.75rem', border: 0, padding: 0 }}
             >
-              <legend className="gaf-field-label" style={{ marginBottom: '0.25rem', padding: 0 }}>
+              <legend className="ak-field-label" style={{ marginBottom: '0.25rem', padding: 0 }}>
                 {label}
               </legend>
               {renderBoolean(key, answers[key], setAnswer, strings, `${formId}-${key}`)}
@@ -60,8 +60,8 @@ export function StructuredInputStep({ step, strings, onSubmit, onSkip, className
         }
 
         return (
-          <label key={key} className="gaf-field" style={{ display: 'block', marginBottom: '0.75rem' }}>
-            <span className="gaf-field-label" style={{ display: 'block', marginBottom: '0.25rem' }}>
+          <label key={key} className="ak-field" style={{ display: 'block', marginBottom: '0.75rem' }}>
+            <span className="ak-field-label" style={{ display: 'block', marginBottom: '0.25rem' }}>
               {label}
             </span>
             {renderInput(key, prop, answers[key], setAnswer)}
@@ -69,7 +69,7 @@ export function StructuredInputStep({ step, strings, onSubmit, onSkip, className
           </label>
         );
       })}
-      <div className="gaf-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+      <div className="ak-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
         <button type="button" disabled={missingRequired} onClick={() => onSubmit(answers)}>
           {strings.next}
         </button>
@@ -91,9 +91,9 @@ function renderBoolean(
   groupName: string,
 ) {
   return (
-    <span className="gaf-boolean-options" style={{ display: 'inline-flex', gap: '1rem' }}>
+    <span className="ak-boolean-options" style={{ display: 'inline-flex', gap: '1rem' }}>
       {[true, false].map((option) => (
-        <label key={String(option)} className="gaf-boolean-option">
+        <label key={String(option)} className="ak-boolean-option">
           <input
             type="radio"
             name={groupName}

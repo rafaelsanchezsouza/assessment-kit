@@ -23,7 +23,7 @@ function main(argv: string[]): number {
   const [command, ...dirs] = argv;
 
   if (command !== 'validate' || dirs.length === 0) {
-    console.error('Usage: gaf-protocols validate <dir...>');
+    console.error('Usage: assessment-protocols validate <dir...>');
     return 1;
   }
 

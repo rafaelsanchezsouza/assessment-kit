@@ -1,4 +1,4 @@
-# Architecture Decision Records — GAF
+# Architecture Decision Records — assessment-kit
 
 Lightweight ADRs. Each records a decision, its context, and the alternatives rejected,
 so future contributors understand *why*, not just *what*. Newest concerns first.
@@ -15,7 +15,7 @@ state machine) and browser clients (guided capture SDK, questionnaire renderer,
 reference app). The shared domain contracts must stay identical across both.
 
 **Decision.** TypeScript for every package. Monorepo managed with pnpm workspaces +
-turborepo. `@gaf/types` is the single source of contracts, depended on by all packages
+turborepo. `@assessment-kit/types` is the single source of contracts, depended on by all packages
 and having zero runtime dependencies itself.
 
 **Rejected.**
@@ -150,14 +150,14 @@ the split costs nothing today and only gets more expensive.
 - Repos enforce **visibility**; packages and dependency direction enforce **layering**.
   These are different concerns — the repo split does not replace the in-repo rules
   (domain-neutral vocabulary in `packages/*`, domain knowledge arrives only as data).
-- **Consumption mechanism:** the private repo consumes `@gaf/*` as versioned npm
+- **Consumption mechanism:** the private repo consumes `@assessment-kit/*` as versioned npm
   dependencies (after the rename, decision on publish). Until first publish, local
   side-by-side clones with `pnpm link`/`file:` overrides for iteration — but only
   registry versions are ever committed. Development may span both repos in one
   working session; the boundary is enforced by CI, not by ceremony.
 - **Guardrails:** framework CI greps `packages/` for domain identifiers
   (`nativa|nbs|paraiba`) and fails on a match; the private repo's CI validates its
-  real protocols/catalogs with the published `gaf-protocols validate` CLI — the JSON
+  real protocols/catalogs with the published `assessment-protocols validate` CLI — the JSON
   Schemas are the inter-repo contract and this is its integration test. Acceptance
   test of the boundary: standing up the Nativa app requires zero edits to `packages/*`;
   when it does, that is a framework bug to fix upstream, never a private patch.
@@ -183,5 +183,5 @@ only compose, configure, and supply data.
 
 Tracked in `docs/domain-model.md` §7: multi-analyzer conflict resolution; LGPD
 consent/deletion model; `plan` composite fulfillment; triggered assessments; the real
-project/product name (`GAF`/`@gaf` is a placeholder pending a global rename before
-first publish).
+project/product name — **settled 2026-08-05: `assessment-kit`**, scope
+`@assessment-kit/*`, schema `$id`s on the repo's GitHub Pages.

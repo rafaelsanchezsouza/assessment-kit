@@ -1,4 +1,4 @@
-import type { Assessment, AssessmentRepository, AssessmentState } from '@gaf/types';
+import type { Assessment, AssessmentRepository, AssessmentState } from '@assessment-kit/types';
 import type { Pool } from 'pg';
 
 export class PostgresAssessmentRepository implements AssessmentRepository {

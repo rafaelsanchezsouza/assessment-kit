@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import type { Finding } from '@gaf/types';
-import type { GafApiClient } from '../api/client.ts';
+import type { Finding } from '@assessment-kit/types';
+import type { AssessmentApiClient } from '../api/client.ts';
 import { analysisImageData, checkImageQuality, type QualityResult } from '../quality/blur.ts';
 import { en, type CaptureStrings } from '../i18n.ts';
 import {
@@ -15,11 +15,11 @@ import { StructuredInputStep } from './StructuredInputStep.tsx';
  * The guided-capture HUD: a pure protocol interpreter. Everything rendered —
  * titles, guidance, overlays, examples, thresholds, form schemas — comes from
  * the protocol the server serves; this component supplies only chrome.
- * Unstyled beyond structural layout; hosts skin it via the gaf-* class names.
+ * Unstyled beyond structural layout; hosts skin it via the ak-* class names.
  */
 
 export interface GuidedCaptureProps extends Omit<UseAssessmentOptions, 'pollIntervalMs'> {
-  client: GafApiClient;
+  client: AssessmentApiClient;
   strings?: CaptureStrings;
   pollIntervalMs?: number;
   onCompleted?: (findings: Finding[]) => void;
@@ -44,15 +44,15 @@ export function GuidedCapture(props: GuidedCaptureProps) {
   }
 
   return (
-    <div className={props.className ?? 'gaf-guided-capture'}>
-      {flow.phase === 'loading' && <p className="gaf-status">…</p>}
+    <div className={props.className ?? 'ak-guided-capture'}>
+      {flow.phase === 'loading' && <p className="ak-status">…</p>}
 
-      {flow.phase === 'error' && <p className="gaf-error">{flow.error}</p>}
+      {flow.phase === 'error' && <p className="ak-error">{flow.error}</p>}
 
-      {flow.phase === 'captured' && <p className="gaf-status">✓</p>}
+      {flow.phase === 'captured' && <p className="ak-status">✓</p>}
 
       {flow.phase === 'waiting' && (
-        <p className="gaf-status">
+        <p className="ak-status">
           {flow.uploadsPending > 0 ? strings.uploading : strings.waitingForAnalysis}
         </p>
       )}
@@ -73,9 +73,9 @@ export function GuidedCapture(props: GuidedCaptureProps) {
       )}
 
       {flow.phase === 'completed' && (
-        <div className="gaf-completed">
+        <div className="ak-completed">
           <h2>{strings.completed}</h2>
-          <ul className="gaf-findings">
+          <ul className="ak-findings">
             {flow.findings.map((f) => (
               <li key={f.id}>{f.statement.text}</li>
             ))}
@@ -91,7 +91,7 @@ interface StepViewProps {
   index: number;
   total: number;
   strings: CaptureStrings;
-  client: GafApiClient;
+  client: AssessmentApiClient;
   onImage: (capture: {
     blobBase64: string;
     contentType: string;
@@ -109,18 +109,18 @@ function StepView({ active, index, total, strings, onImage, onStructured, onSkip
   const skippable = step.optional || origin === 'evidence_request';
 
   return (
-    <div className="gaf-step">
-      <p className="gaf-step-progress">{strings.stepProgress(index + 1, total)}</p>
+    <div className="ak-step">
+      <p className="ak-step-progress">{strings.stepProgress(index + 1, total)}</p>
       {origin === 'evidence_request' && (
-        <p className="gaf-evidence-request-reason">
+        <p className="ak-evidence-request-reason">
           {strings.analystRequestedMore} <b>{reason}</b>
         </p>
       )}
-      <h2 className="gaf-step-title">
+      <h2 className="ak-step-title">
         {step.title}
         {step.optional ? <small> ({strings.optionalStep})</small> : null}
       </h2>
-      <p className="gaf-step-guidance">{step.guidance}</p>
+      <p className="ak-step-guidance">{step.guidance}</p>
 
       {step.captureType === 'structured_input' ? (
         <StructuredInputStep step={step} strings={strings} onSubmit={onStructured} onSkip={skippable ? onSkip : undefined} />
@@ -200,19 +200,19 @@ function ImageStep({
     ) ?? [];
 
   return (
-    <div className="gaf-image-step">
+    <div className="ak-image-step">
       {step.exampleRef ? (
-        <p className="gaf-example">
+        <p className="ak-example">
           <small>{step.exampleRef}</small>
         </p>
       ) : null}
-      <div className="gaf-frame" style={{ position: 'relative' }}>
+      <div className="ak-frame" style={{ position: 'relative' }}>
         {pending ? <img src={pending.previewUrl} alt={step.title} style={{ maxWidth: '100%' }} /> : null}
-        {step.overlayRef && !pending ? <span className="gaf-overlay-ref" data-overlay={step.overlayRef} /> : null}
+        {step.overlayRef && !pending ? <span className="ak-overlay-ref" data-overlay={step.overlayRef} /> : null}
       </div>
 
       {[...new Set(qualityWarnings)].map((w) => (
-        <p key={w} className="gaf-quality-warning">
+        <p key={w} className="ak-quality-warning">
           ⚠️ {w}
         </p>
       ))}
@@ -230,7 +230,7 @@ function ImageStep({
         }}
       />
 
-      <div className="gaf-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+      <div className="ak-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
         {!pending ? (
           <button type="button" onClick={() => inputRef.current?.click()}>
             {strings.takePhoto}

@@ -1,12 +1,12 @@
 {
-  "name": "gaf-monorepo",
+  "name": "assessment-kit-monorepo",
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
-    "protocols:validate": "pnpm --filter @gaf/protocol-tools validate ../../protocols ../../catalog",
+    "protocols:validate": "pnpm --filter @assessment-kit/protocol-tools validate ../../protocols ../../catalog",
     "lint:layering": "! grep -riEn 'nativa|nbs|paraiba|paraíba' packages/ --include='*.ts' --include='*.tsx' --include='*.json' --include='*.sql' --include='*.md'",
     "verify": "pnpm build && pnpm test && pnpm protocols:validate && pnpm lint:layering"
   },

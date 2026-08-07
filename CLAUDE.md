@@ -1,4 +1,4 @@
-# CLAUDE.md — Project handover: Guided Assessment Framework (GAF)
+# CLAUDE.md — Project handover: assessment-kit (guided visual assessment framework)
 
 > Handover from a design session (July 2026). Read this fully before making changes.
 > Companion docs in `docs/`:
@@ -34,14 +34,14 @@ not a target).
 ## Key decisions already made (do not relitigate casually)
 
 1. **TypeScript end-to-end.** pnpm + turborepo monorepo. Rationale: one language, the
-   `@gaf/types` package is the single contract, largest OSS contributor pool.
+   `@assessment-kit/types` package is the single contract, largest OSS contributor pool.
 2. **Domain chain:** Evidence → Finding → Condition → Recommendation → Solution.
    Findings are atomic facts; Conditions are interpretations; Recommendation is a
    first-class link object with rationale + provenance. See docs/domain-model.md.
 3. **Evidence types:** `image | structured_input | document`. Evidence is **owned by
    the Subject**, referenced by Assessments (AssessmentEvidence link). Enables reuse,
    bulk import, longitudinal queries.
-4. **Human and AI analyzers share one contract** (`Analyzer` in @gaf/types). v1 ships
+4. **Human and AI analyzers share one contract** (`Analyzer` in @assessment-kit/types). v1 ships
    with ONLY the human analyzer (Wizard-of-Oz). Analyzer output = findings +
    evidenceRequests.
 5. **Two feedback loops:** refinement (EvidenceRequest `kind: retake | additional`,
@@ -71,10 +71,16 @@ not a target).
     Recommendation — never "diagnosis/treatment". i18n per package from day one
     (EN default, PT-BR complete).
 13. `feedsAnalyzers` on ProtocolStep references analyzer **roles**, not concrete ids.
-14. `GAF/@gaf` is a **placeholder name** — global rename pending before first publish
-    (npm scope, schema $id URLs, repo name).
+14. **Name settled (2026-08-05): `assessment-kit`**, npm scope `@assessment-kit/*`.
+    Chosen plain and descriptive over anything evocative; `GAF` was dropped because
+    the acronym is opaque, it reads as "gafe" (blunder) in PT-BR, and GAF is the
+    largest roofing manufacturer in North America — a live collision in this
+    domain. Schema `$id`s point at the repo's GitHub Pages
+    (`https://rafaelsanchezsouza.github.io/assessment-kit/schemas/...`) rather than
+    a domain nobody owns. Repos: **`assessment-kit`** (public-destined, this one)
+    and **`nativa`** (private domain layer).
 15. **Two-repo topology (ADR-006):** this repo is the public-destined framework; the
-    private domain layer lives in `../nativa-domain` (requirements handover, real
+    private domain layer lives in `../nativa` (requirements handover, real
     catalogs, eventually the Nativa app). Repos enforce visibility; packages enforce
     layering — CI greps `packages/` for domain identifiers and fails on a hit.
     Sessions span both repos; domain knowledge never lands in `packages/*`.
@@ -97,10 +103,10 @@ not a target).
   Async handlers are rejection-safe (`wrap()` + error middleware — a failing
   repository call returns 500 instead of killing the process; regression-tested).
   `deps` is fully interface-typed against
-  `@gaf/types` — core never imports `@gaf/storage-postgres` or `@gaf/analyzer-human`
+  `@assessment-kit/types` — core never imports `@assessment-kit/storage-postgres` or `@assessment-kit/analyzer-human`
   directly, keeping the ports/adapters boundary real. Tested with in-memory fake
   repos (`packages/core/src/testSupport/inMemoryRepos.ts`) + supertest — no
-  Postgres needed to run `@gaf/core`'s own tests.
+  Postgres needed to run `@assessment-kit/core`'s own tests.
 - `packages/analyzer-human` — **HumanAnalyzer now works** (in-memory pending-review
   queue; `analyze()` resolves when `submitReview()` is called). In-memory only —
   won't survive a restart; a durable queue is a follow-up, not a blocker.
@@ -108,35 +114,35 @@ not a target).
   Postgres repositories (one per aggregate, `schema/001_init.sql`, plain-SQL
   migration script, no ORM) + a local-filesystem `BlobStore`. Storage port
   interfaces (`SubjectRepository`, `AssessmentRepository`, ..., `BlobStore`) live
-  in `@gaf/types`. Local dev: `docker compose -f packages/storage-postgres/docker-compose.yml up -d`
-  then `pnpm --filter @gaf/storage-postgres migrate`. Wired into CI (Postgres
+  in `@assessment-kit/types`. Local dev: `docker compose -f packages/storage-postgres/docker-compose.yml up -d`
+  then `pnpm --filter @assessment-kit/storage-postgres migrate`. Wired into CI (Postgres
   service container).
 - `apps/reference` — **the real composition root, no longer a stub**: loads and
   validates every protocol YAML in `PROTOCOLS_DIR` (colon-separated dirs;
   defaults to `protocols/demo`) — this is how a vertical serves its own
-  protocols with zero code changes. Wires `@gaf/storage-postgres` +
+  protocols with zero code changes. Wires `@assessment-kit/storage-postgres` +
   `HumanAnalyzer` + `Orchestrator` into `createApp`, listens on port `3002`
   (local only — not deployed to the shared VM; the VM's :8090 is only the old
   static prototype). Run, after the Postgres compose + migrate steps above:
-  `pnpm --filter @gaf/reference-app build && \
-  PROTOCOLS_DIR=protocols/demo:../nativa-domain/protocols \
-  DATABASE_URL=postgres://gaf:gaf@localhost:5433/gaf node apps/reference/dist/main.js`.
+  `pnpm --filter @assessment-kit/reference-app build && \
+  PROTOCOLS_DIR=protocols/demo:../nativa/protocols \
+  DATABASE_URL=postgres://akit:akit@localhost:5433/akit node apps/reference/dist/main.js`.
   End-to-end tested against real Postgres: capture → submit → human review →
   `completed`, findings genuinely persisted, blob round-trip byte-identical.
-- `packages/protocol-tools` — **real validator CLI** (`gaf-protocols validate <dir...>`,
+- `packages/protocol-tools` — **real validator CLI** (`assessment-protocols validate <dir...>`,
   ajv 2020-12 + referential checks) and schemas for both linear protocols
   (`protocol.schema.json`) and solution-first catalogs (`catalog.schema.json`).
   `pnpm protocols:validate` checks `protocols/` and `catalog/` and is wired into CI.
-- `packages/capture-web` — **real React SDK, no longer a stub**: typed `GafApiClient`,
+- `packages/capture-web` — **real React SDK, no longer a stub**: typed `AssessmentApiClient`,
   Laplacian blur + resolution checks (thresholds only from `step.validationRules`;
   `maxBlur 0.4` ≡ the prototype's sharpness-12 on the same 160×120 downscale),
   resumable `UploadQueue` (pluggable storage, backoff retry, 4xx = permanent fail),
   `useAssessment` hook (create → capture → submit → poll → evidence-request loop →
-  completed), `GuidedCapture`/`StructuredInputStep` components (unstyled, `gaf-*`
+  completed), `GuidedCapture`/`StructuredInputStep` components (unstyled, `ak-*`
   class hooks), chrome-string i18n EN + PT-BR (domain text stays in protocol data).
   22 node tests on the pure parts; React is a peer dependency.
   **Boolean answers (2026-08-01):** `StructuredInputStep` renders `type: boolean`
-  as an explicit yes/no radio pair (`.gaf-boolean-option`), never a lone checkbox
+  as an explicit yes/no radio pair (`.ak-boolean-option`), never a lone checkbox
   — an unchecked box can't be told apart from an unanswered question and silently
   satisfies `required` with `false`. The rule lives in `structuredAnswers.ts`
   (`missingRequiredKeys`/`isAnswered`: `false` and `0` are answers,
@@ -149,7 +155,7 @@ not a target).
   keeping the ADR-006 boundary intact (the Nativa app wires them to PostHog).
 - `apps/capture-demo` — dev-only Vite host proving the SDK against `apps/reference`
   through an `/api` proxy (no CORS needed), neutral demo protocol only:
-  `pnpm --filter @gaf/capture-demo dev` with the reference app running.
+  `pnpm --filter @assessment-kit/capture-demo dev` with the reference app running.
 - `packages/analyzer`, `forms-web` — intentional stubs with responsibility comments.
 - `protocols/demo/backyard-quick-check.yaml` — valid demo protocol.
 - `catalog/nbs-paraiba.yaml` — 14 NBS solutions for Paraíba with regional priorities
@@ -159,7 +165,7 @@ not a target).
 - `apps/prototype/nbs-v2.html` — **v2 prototype (PT-BR, solution-first)**: context →
   region-prioritized catalog picker → composed deduplicated shooting script (each photo
   shows which solutions it feeds) → Laplacian blur check → conditional analyzer-requested
-  step → review → JSON manifest. Demonstrates the framework; does NOT import @gaf/*.
+  step → review → JSON manifest. Demonstrates the framework; does NOT import @assessment-kit/*.
   **Deployed** at `http://csaparahyba.com.br:8090/` (shared Oracle VM, no domain/TLS of
   its own yet) — demo link, not the product.
 - CI: build + test (incl. a Postgres service container) + protocol validation +
@@ -167,22 +173,22 @@ not a target).
 
 ## Build order (agreed roadmap)
 
-1. `@gaf/protocol-tools` validator CLI (ajv + referential checks: unique step ids,
+1. `@assessment-kit/protocol-tools` validator CLI (ajv + referential checks: unique step ids,
    branch targets exist, assets present). Extend the schema to cover solution-first
    catalogs (Solution.evidenceRequirements + composition rules) — the schema currently
    covers linear protocols only.
-2. `@gaf/core`: state machine + persistence + HTTP API. **Done**: storage ports,
+2. `@assessment-kit/core`: state machine + persistence + HTTP API. **Done**: storage ports,
    Postgres adapter, Orchestrator persistence/role-routing, the HTTP API itself,
    and `apps/reference` running it end-to-end against real Postgres. Draft-sync
    (per-step resumability across devices) isn't separately built yet — today's
    `PATCH .../progress` is single-shot, not conflict-aware multi-device sync.
-3. `@gaf/capture-web`. **Done** (see current state): SDK + `apps/capture-demo`
+3. `@assessment-kit/capture-web`. **Done** (see current state): SDK + `apps/capture-demo`
    clickable POC, verified end-to-end against the live backend (photo blob upload,
    structured input, skip, review loop, byte-identical blob round-trip). Remaining
    niceties: overlay SVG rendering (currently a data-attribute hook), getUserMedia
    HUD, protocol-level i18n, request-body validation for friendlier 400s.
 4. Review UI: **done, in the domain layer** (user decision — less abstraction).
-   `../nativa-domain/app` is the first real Nativa app: comerciante view
+   `../nativa/app` is the first real Nativa app: comerciante view
    (GuidedCapture + PT-BR protocol) and fornecedor view (review queue via
    `GET /assessments?state=review`, evidence gallery, findings/evidence-request
    composer → `POST /reviews`). The framework only gained generic surfaces
@@ -200,7 +206,7 @@ protocol-tools; the Nativa server composes per-solution protocols from the
 catalog at boot). The framework also gained branch assessments (`branchOf`),
 the subject evidence library + evidence-links endpoints, `assessmentId`
 resume + `autoSubmit=false` in capture-web — all driven generically by the
-domain's iteration 2 (see `../nativa-domain/docs/proximos-passos.md` for the
+domain's iteration 2 (see `../nativa/docs/proximos-passos.md` for the
 cross-repo roadmap).
 
 **EvidenceRequest resolution (2026-08-05, half shipped).** The modelling
@@ -252,14 +258,14 @@ persistence, fulfillment event bus) waits for the automatic-recommendation flow.
   the exact CI gates locally: build → all tests → protocol/catalog validation →
   ADR-006 layering lint (`pnpm lint:layering`, shared with `.github/workflows/ci.yml`
   so the two can't drift). Postgres tests need the compose DB up
-  (`DATABASE_URL=postgres://gaf:gaf@localhost:5433/gaf`); without it they skip
+  (`DATABASE_URL=postgres://akit:akit@localhost:5433/akit`); without it they skip
   cleanly. GitHub CI stays dormant until the repo is pushed — until then this
   command IS the CI. `pnpm verify` is fully green as of 2026-07-18 (the former
   layering-lint red was fixed by pointing the composer tests at a neutral
   in-package fixture — `packages/protocol-tools/test-fixtures/demo-catalog.yaml`
   — instead of the domain `nbs-paraiba.yaml`; the lint stays strict rather than
   excluding test files).
-- Strict TS everywhere; `@gaf/types` has zero runtime dependencies.
+- Strict TS everywhere; `@assessment-kit/types` has zero runtime dependencies.
 - Protocols/catalogs: YAML in repo, schema-validated in CI, never hand-edited JSON.
 - Every entity that stores an interpretation carries provenance ({id, version} of
   producer) and confidence where applicable.

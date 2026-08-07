@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ApiError, GafApiClient } from './api/client.ts';
+import { ApiError, AssessmentApiClient } from './api/client.ts';
 import { UploadQueue, type QueueStorage } from './uploadQueue.ts';
 
 class FakeStorage implements QueueStorage {
@@ -57,7 +57,7 @@ test('happy path: uploads blob then patches progress, queue drains, state persis
     }
     return { status: 200, body: { id: 'a1', progress: { 'wide-shot': 'done' } } };
   });
-  const client = new GafApiClient({ baseUrl: 'http://x', fetchImpl: impl });
+  const client = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: impl });
   const done: string[] = [];
   const queue = new UploadQueue({ client, storage, onTaskDone: (t) => done.push(t.id) });
 
@@ -69,7 +69,7 @@ test('happy path: uploads blob then patches progress, queue drains, state persis
   assert.equal(calls.length, 2);
   assert.ok(calls[0].url.endsWith('/assessments/a1/evidence-blob'));
   assert.equal(calls[1].method, 'PATCH');
-  assert.equal(storage.getItem('gaf-upload-queue'), '[]');
+  assert.equal(storage.getItem('ak-upload-queue'), '[]');
 });
 
 test('transient 5xx retries with backoff and eventually succeeds', async () => {
@@ -84,7 +84,7 @@ test('transient 5xx retries with backoff and eventually succeeds', async () => {
     }
     return { status: 200, body: {} };
   });
-  const client = new GafApiClient({ baseUrl: 'http://x', fetchImpl: impl });
+  const client = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: impl });
   const failed: boolean[] = [];
   const queue = new UploadQueue({
     client,
@@ -105,7 +105,7 @@ test('4xx is permanent: task dropped, reported once, no retry', async () => {
     if (url.endsWith('/evidence-blob')) return { status: 400, body: { error: 'bad payload' } };
     return { status: 200, body: {} };
   });
-  const client = new GafApiClient({ baseUrl: 'http://x', fetchImpl: impl });
+  const client = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: impl });
   const failures: Array<{ permanent: boolean; error: unknown }> = [];
   const queue = new UploadQueue({
     client,
@@ -127,22 +127,22 @@ test('4xx is permanent: task dropped, reported once, no retry', async () => {
 test('a new queue restores persisted tasks and resumes them (refresh survival)', async () => {
   const storage = new FakeStorage();
   const failing = fakeFetch(() => ({ status: 503, body: {} }));
-  const client1 = new GafApiClient({ baseUrl: 'http://x', fetchImpl: failing.impl });
+  const client1 = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: failing.impl });
   const queue1 = new UploadQueue({ client: client1, storage, retryDelaysMs: [1], maxAttempts: 2 });
   queue1.enqueue(makeTask());
   // don't process — simulate the tab dying with the task still queued
-  assert.ok(storage.getItem('gaf-upload-queue')!.includes('"t1"'));
+  assert.ok(storage.getItem('ak-upload-queue')!.includes('"t1"'));
 
   const ok = fakeFetch((url) => {
     if (url.endsWith('/evidence-blob')) return { status: 201, body: { blobKey: 'k', payloadRef: 'blob://k' } };
     return { status: 200, body: {} };
   });
-  const client2 = new GafApiClient({ baseUrl: 'http://x', fetchImpl: ok.impl });
+  const client2 = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: ok.impl });
   const queue2 = new UploadQueue({ client: client2, storage });
   assert.equal(queue2.pending.length, 1, 'task restored from storage');
   await queue2.process();
   assert.equal(queue2.pending.length, 0);
-  assert.equal(storage.getItem('gaf-upload-queue'), '[]');
+  assert.equal(storage.getItem('ak-upload-queue'), '[]');
 });
 
 test('blob upload is not repeated when the progress PATCH is what fails', async () => {
@@ -157,7 +157,7 @@ test('blob upload is not repeated when the progress PATCH is what fails', async 
     }
     return { status: 200, body: {} };
   });
-  const client = new GafApiClient({ baseUrl: 'http://x', fetchImpl: impl });
+  const client = new AssessmentApiClient({ baseUrl: 'http://x', fetchImpl: impl });
   const queue = new UploadQueue({ client, storage: new FakeStorage(), retryDelaysMs: [1] });
 
   queue.enqueue(makeTask());
