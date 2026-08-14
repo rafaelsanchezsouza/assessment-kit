@@ -7,10 +7,10 @@
   "types": "dist/index.d.ts",
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test" },
   "license": "Apache-2.0",
-  "dependencies": { "@assessment-kit/types": "workspace:*", "express": "^4.21.1" },
+  "dependencies": { "@assessment-kit/types": "workspace:*", "express": "^5.2.1" },
   "devDependencies": {
     "@assessment-kit/analyzer-human": "workspace:*",
-    "@types/express": "^4.17.21",
+    "@types/express": "^5.0.6",
     "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0"
   }
